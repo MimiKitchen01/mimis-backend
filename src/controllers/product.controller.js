@@ -1,14 +1,24 @@
 import * as productService from '../services/product.service.js';
+import { formatImageUrls } from '../middleware/upload.middleware.js';
+import { ApiError } from '../middleware/error.middleware.js';
 
-export const createProduct = async (req, res) => {
+export const createProduct = async (req, res, next) => {
   try {
-    const product = await productService.createProduct(req.body);
+    // Handle multipart form data
+    const productData = {
+      ...req.body,
+      ingredients: JSON.parse(req.body.ingredients),
+      ...formatImageUrls(req.files)
+    };
+
+    const product = await productService.createProduct(productData);
+    
     res.status(201).json({
       message: 'Product created successfully',
       product
     });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    next(error);
   }
 };
 
@@ -37,15 +47,31 @@ export const getProduct = async (req, res) => {
   }
 };
 
-export const updateProduct = async (req, res) => {
+export const updateProduct = async (req, res, next) => {
   try {
-    const product = await productService.updateProduct(req.params.id, req.body);
+    let updateData = { ...req.body };
+    
+    // Handle image updates if files are included
+    if (req.files?.length) {
+      updateData = {
+        ...updateData,
+        ...formatImageUrls(req.files)
+      };
+    }
+
+    // Parse ingredients if included
+    if (updateData.ingredients) {
+      updateData.ingredients = JSON.parse(updateData.ingredients);
+    }
+
+    const product = await productService.updateProduct(req.params.id, updateData);
+    
     res.json({
       message: 'Product updated successfully',
       product
     });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    next(error);
   }
 };
 

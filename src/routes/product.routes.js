@@ -1,5 +1,6 @@
 import express from 'express';
 import * as productController from '../controllers/product.controller.js';
+import { uploadToS3 } from '../middleware/upload.middleware.js';
 import auth from '../middleware/auth.js';
 
 /**
@@ -84,14 +85,39 @@ const router = express.Router();
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/Product'
+ *             type: object
+ *             required:
+ *               - name
+ *               - description
+ *               - category
+ *               - price
+ *               - ingredients
+ *               - images
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               category:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               ingredients:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
  *     responses:
  *       201:
  *         description: Product created successfully
  */
-router.post('/', auth, productController.createProduct);
+router.post('/', auth, uploadToS3.array('images', 8), productController.createProduct);
 
 /**
  * @swagger
