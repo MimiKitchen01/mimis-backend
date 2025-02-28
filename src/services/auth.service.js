@@ -1,0 +1,59 @@
+import User from '../models/user.model.js';
+import jwt from 'jsonwebtoken';
+
+export const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+export const createUser = async (userData) => {
+  const existingUser = await User.findOne({ email: userData.email });
+  if (existingUser) {
+    throw new Error('Email already registered');
+  }
+
+  const otp = {
+    code: generateOTP(),
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+  };
+
+  const user = new User({
+    ...userData,
+    otp,
+  });
+
+  await user.save();
+  return { user, otpCode: otp.code };
+};
+
+export const verifyUserOTP = async (email, otp) => {
+  const user = await User.findOne({ email });
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (user.otp.code !== otp || user.otp.expiresAt < new Date()) {
+    throw new Error('Invalid or expired OTP');
+  }
+
+  user.isVerified = true;
+  user.otp = undefined;
+  await user.save();
+  return user;
+};
+
+export const loginUser = async (email, password) => {
+  const user = await User.findOne({ email });
+  if (!user || !(await user.comparePassword(password))) {
+    throw new Error('Invalid credentials');
+  }
+
+  if (!user.isVerified) {
+    throw new Error('Please verify your email first');
+  }
+
+  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+    expiresIn: '24h',
+  });
+
+  return { user, token };
+};

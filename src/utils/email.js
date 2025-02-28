@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { getOTPTemplate, getWelcomeTemplate } from '../templates/emailTemplates.js';
 
 const transporter = nodemailer.createTransport({
   service: process.env.EMAIL_SERVICE,
@@ -8,20 +9,30 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export const sendOTP = async (email, otp) => {
+export const sendOTP = async (email, otp, fullName) => {
   try {
     await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+      from: `"Mimi's Kitchen" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: 'Email Verification',
-      html: `
-        <h1>Email Verification</h1>
-        <p>Your verification code is: <strong>${otp}</strong></p>
-        <p>This code will expire in 10 minutes.</p>
-      `,
+      subject: 'Verify Your Email - Mimi\'s Kitchen',
+      html: getOTPTemplate(otp, fullName),
     });
   } catch (error) {
     console.error('Email sending failed:', error);
+    throw error;
+  }
+};
+
+export const sendWelcomeEmail = async (email, fullName) => {
+  try {
+    await transporter.sendMail({
+      from: `"Mimi's Kitchen" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Welcome to Mimi\'s Kitchen!',
+      html: getWelcomeTemplate(fullName),
+    });
+  } catch (error) {
+    console.error('Welcome email sending failed:', error);
     throw error;
   }
 };

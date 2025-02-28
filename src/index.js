@@ -6,6 +6,7 @@ import swaggerUi from 'swagger-ui-express';
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
 import addressRoutes from './routes/address.routes.js';
+import productRoutes from './routes/product.routes.js';
 import swaggerSpec from './config/swagger.config.js';
 
 const app = express();
@@ -26,6 +27,7 @@ app.get('/swagger.json', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/addresses', addressRoutes);
+app.use('/api/products', productRoutes);
 
 // Database connection
 mongoose.connect(process.env.MONGODB_URI)
