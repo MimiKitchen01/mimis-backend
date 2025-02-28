@@ -1,4 +1,4 @@
-const nodemailer = require('nodemailer');
+import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
   service: process.env.EMAIL_SERVICE,
@@ -8,7 +8,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-exports.sendOTP = async (email, otp) => {
+export const sendOTP = async (email, otp) => {
   try {
     await transporter.sendMail({
       from: process.env.EMAIL_USER,

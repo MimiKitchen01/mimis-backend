@@ -1,9 +1,12 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const mongoose = require('mongoose');
-const authRoutes = require('./routes/auth.routes');
-const userRoutes = require('./routes/user.routes');
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import mongoose from 'mongoose';
+import swaggerUi from 'swagger-ui-express';
+import authRoutes from './routes/auth.routes.js';
+import userRoutes from './routes/user.routes.js';
+import addressRoutes from './routes/address.routes.js';
+import swaggerSpec from './config/swagger.config.js';
 
 const app = express();
 
@@ -11,9 +14,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+// Add endpoint to get swagger.json
+app.get('/swagger.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/addresses', addressRoutes);
 
 // Database connection
 mongoose.connect(process.env.MONGODB_URI)

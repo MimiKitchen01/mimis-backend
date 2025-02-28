@@ -1,8 +1,8 @@
-const User = require('../models/user.model');
-const jwt = require('jsonwebtoken');
-const { sendOTP } = require('../utils/email');
+import User from '../models/user.model.js';
+import jwt from 'jsonwebtoken';
+import { sendOTP } from '../utils/email.js';
 
-exports.register = async (req, res) => {
+export const register = async (req, res) => {
   try {
     const { email, password, fullName } = req.body;
     
@@ -36,7 +36,7 @@ exports.register = async (req, res) => {
   }
 };
 
-exports.verifyOTP = async (req, res) => {
+export const verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
     
@@ -59,7 +59,7 @@ exports.verifyOTP = async (req, res) => {
   }
 };
 
-exports.login = async (req, res) => {
+export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     
@@ -82,7 +82,7 @@ exports.login = async (req, res) => {
   }
 };
 
-exports.getProfile = async (req, res) => {
+export const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select('-password -otp');
     res.json(user);
