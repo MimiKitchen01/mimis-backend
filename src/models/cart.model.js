@@ -39,4 +39,6 @@ cartSchema.pre('save', function(next) {
   next();
 });
 
-export default mongoose.model('Cart', cartSchema);
+const Cart = mongoose.model('Cart', cartSchema);
+
+export default Cart;

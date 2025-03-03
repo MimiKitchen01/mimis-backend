@@ -1,4 +1,4 @@
-import { logger } from '../utils/logger.js';
+import logger from '../utils/logger.js';
 
 export class ApiError extends Error {
   constructor(statusCode, message) {
@@ -9,6 +9,17 @@ export class ApiError extends Error {
 }
 
 export const errorHandler = (err, req, res, next) => {
+  logger.error({
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    body: req.body,
+    query: req.query,
+    params: req.params,
+    user: req.user
+  });
+
   err.statusCode = err.statusCode || 500;
   err.status = err.status || 'error';
 

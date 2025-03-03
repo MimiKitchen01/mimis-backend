@@ -1,6 +1,7 @@
 import express from 'express';
 import * as orderController from '../controllers/order.controller.js';
 import auth from '../middleware/auth.js';
+import logger from '../utils/logger.js';
 
 /**
  * @swagger
@@ -167,7 +168,7 @@ router.post('/create', auth, orderController.createOrder);
 
 /**
  * @swagger
- * /api/orders/list:
+ * /api/orders:
  *   get:
  *     summary: Get user's orders
  *     tags: [Orders]
@@ -190,7 +191,34 @@ router.post('/create', auth, orderController.createOrder);
  *               items:
  *                 $ref: '#/components/schemas/Order'
  */
-router.get('/list', auth, orderController.getOrders);
+router.get('/', auth, (req, res, next) => {
+  logger.info({
+    message: 'Getting user orders',
+    userId: req.user.userId,
+    query: req.query
+  });
+  orderController.getOrders(req, res, next);
+});
+
+/**
+ * @swagger
+ * /api/orders/{id}:
+ *   get:
+ *     summary: Get order by ID
+ *     tags: [Orders]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Order details
+ */
+router.get('/:id', auth, orderController.getOrderById);
 
 /**
  * @swagger
