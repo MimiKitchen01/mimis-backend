@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { PRODUCT_CATEGORIES, ALLERGENS, SPICY_LEVELS } from '../constants/index.js';
 
 const productSchema = new mongoose.Schema({
   name: {
@@ -37,15 +38,12 @@ const productSchema = new mongoose.Schema({
   }],
   spicyLevel: {
     type: String,
-    enum: ['Not Spicy', 'Mild', 'Medium', 'Hot', 'Extra Hot'],
+    enum: SPICY_LEVELS,
     default: 'Not Spicy'
   },
   allergens: [{
     type: String,
-    enum: [
-      'Milk', 'Eggs', 'Fish', 'Shellfish', 'Tree Nuts', 
-      'Peanuts', 'Wheat', 'Soybeans', 'None'
-    ]
+    enum: ALLERGENS
   }],
   dietaryInfo: [{
     type: String,
@@ -57,10 +55,7 @@ const productSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: [
-      'Appetizers', 'Main Course', 'Desserts', 'Beverages',
-      'Sides', 'Salads', 'Soups', 'Breakfast', 'Lunch', 'Dinner'
-    ]
+    enum: PRODUCT_CATEGORIES
   },
   imageUrl: {
     type: String,

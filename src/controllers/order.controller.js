@@ -1,6 +1,7 @@
 import * as orderService from '../services/order.service.js';
 import * as cartService from '../services/cart.service.js';
 import Cart from '../models/cart.model.js'; // Changed from named import to default import
+import Product from '../models/product.model.js';
 import Order from '../models/order.model.js'; // Changed from named import to default import
 import { ApiError } from '../middleware/error.middleware.js';
 import logger from '../utils/logger.js';
@@ -20,29 +21,65 @@ export const getCart = async (req, res) => {
 export const addToCart = async (req, res) => {
   try {
     const { productId, quantity } = req.body;
+    
+    // Find the product to get its price
+    const product = await Product.findById(productId);
+    if (!product) {
+      throw new ApiError(404, 'Product not found');
+    }
+
+    // Validate product availability
+    if (!product.isAvailable) {
+      throw new ApiError(400, 'Product is not available');
+    }
+
+    // Find or create cart
     let cart = await Cart.findOne({ user: req.user.userId });
     
     if (!cart) {
-      cart = new Cart({ user: req.user.userId, items: [] });
+      cart = new Cart({
+        user: req.user.userId,
+        items: []
+      });
     }
 
-    const existingItem = cart.items.find(item => 
-      item.product.toString() === productId
+    // Check if product already exists in cart
+    const existingItemIndex = cart.items.findIndex(
+      item => item.product.toString() === productId
     );
 
-    if (existingItem) {
-      existingItem.quantity += quantity;
+    if (existingItemIndex > -1) {
+      // Update existing item quantity
+      cart.items[existingItemIndex].quantity += quantity;
     } else {
-      cart.items.push({ product: productId, quantity });
+      // Add new item with product price
+      cart.items.push({
+        product: productId,
+        quantity,
+        price: product.price // Add the product price here
+      });
     }
 
+    // Recalculate total
+    cart.total = cart.items.reduce((total, item) => {
+      return total + (item.price * item.quantity);
+    }, 0);
+
     await cart.save();
+
+    // Populate product details for response
     await cart.populate('items.product');
-    
-    res.json(cart);
+
+    res.json({
+      message: 'Item added to cart successfully',
+      cart
+    });
   } catch (error) {
     logger.error('Error in addToCart:', error);
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ 
+      message: error.message,
+      errors: error.errors 
+    });
   }
 };
 

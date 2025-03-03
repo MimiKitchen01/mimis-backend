@@ -1,4 +1,6 @@
 import Product from '../models/product.model.js';
+import logger from '../utils/logger.js';
+import { ApiError } from '../middleware/error.middleware.js';
 
 export const validateImages = (imageUrl, additionalImages) => {
   const totalImages = 1 + (additionalImages?.length || 0);
@@ -17,18 +19,44 @@ export const createProduct = async (productData) => {
   return product;
 };
 
-export const getProducts = async (filters = {}) => {
-  return Product.find(filters)
-    .where('isActive').equals(true)
-    .sort('-createdAt');
+export const getProducts = async (filter = {}) => {
+  try {
+    logger.info('Fetching products with filter:', filter);
+    
+    const products = await Product.find(filter)
+      .sort({ createdAt: -1 });
+
+    logger.info(`Found ${products.length} products`);
+    
+    return products;
+  } catch (error) {
+    logger.error('Error in getProducts service:', {
+      error: error.message,
+      filter
+    });
+    throw new ApiError(500, 'Error fetching products');
+  }
 };
 
 export const getProductById = async (id) => {
-  const product = await Product.findById(id);
-  if (!product || !product.isActive) {
-    throw new Error('Product not found');
+  try {
+    logger.info('Fetching product by ID:', id);
+    
+    const product = await Product.findById(id);
+    
+    if (!product) {
+      logger.error('Product not found:', { id });
+      throw new ApiError(404, 'Product not found');
+    }
+    
+    logger.info('Product found:', { id: product._id, name: product.name });
+    return product;
+  } catch (error) {
+    if (error.name === 'CastError') {
+      throw new ApiError(400, 'Invalid product ID format');
+    }
+    throw error;
   }
-  return product;
 };
 
 export const updateProduct = async (id, updateData) => {

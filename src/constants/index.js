@@ -20,12 +20,37 @@ export const PAYMENT_STATUS = {
 };
 
 export const PRODUCT_CATEGORIES = [
+  'Appetizers',
+  'Main Course',
   'Burgers',
   'Pizza',
   'Pasta',
   'Salads',
   'Beverages',
-  'Desserts'
+  'Desserts',
+  'Sides',
+  'Soups'
+];
+
+export const ALLERGENS = [
+  'milk',
+  'eggs',
+  'fish',
+  'shellfish',
+  'tree_nuts',
+  'peanuts',
+  'wheat',
+  'soy',
+  'gluten',
+  'sesame'
+];
+
+export const SPICY_LEVELS = [
+  'Not Spicy',
+  'Mild',
+  'Medium',
+  'Hot',
+  'Extra Hot'
 ];
 
 export const ERROR_MESSAGES = {
@@ -34,3 +59,9 @@ export const ERROR_MESSAGES = {
   VALIDATION_ERROR: 'Validation error',
   SERVER_ERROR: 'Internal server error'
 };
+
+export const ADDRESS_TYPES = [
+  'home',
+  'work',
+  'other'
+];

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { ADDRESS_TYPES } from '../constants/index.js';
 
 const addressSchema = new mongoose.Schema({
   user: {
@@ -8,8 +9,9 @@ const addressSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['Home', 'Work', 'Other'],
-    default: 'Home'
+    required: true,
+    enum: ADDRESS_TYPES,
+    default: 'home'
   },
   street: {
     type: String,

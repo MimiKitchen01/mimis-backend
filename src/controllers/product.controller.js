@@ -7,6 +7,12 @@ import * as imageService from '../services/image.service.js';
 
 export const createProduct = async (req, res) => {
   try {
+    // Debug log to check incoming data
+    logger.info('Product creation request:', {
+      body: req.body,
+      files: req.files
+    });
+
     // Validate admin role
     if (req.user.role !== 'admin') {
       throw new ApiError(403, 'Only admins can create products');
@@ -22,23 +28,23 @@ export const createProduct = async (req, res) => {
       req.files.map(file => imageService.uploadImage(file, req.user.userId, 'product'))
     );
 
-    // Parse form data
+    // Parse form data with validation
     const productData = {
       name: req.body.name,
       description: req.body.description,
-      price: parseFloat(req.body.price),
-      preparationTime: parseInt(req.body.preparationTime),
+      price: req.body.price ? parseFloat(req.body.price) : undefined,
+      preparationTime: req.body.preparationTime ? parseInt(req.body.preparationTime) : undefined,
       nutritionInfo: {
-        calories: parseInt(req.body.calories),
-        protein: parseFloat(req.body.protein),
-        carbohydrates: parseFloat(req.body.carbohydrates),
-        fats: parseFloat(req.body.fats),
-        fiber: parseFloat(req.body.fiber)
+        calories: req.body.calories ? parseInt(req.body.calories) : undefined,
+        protein: req.body.protein ? parseFloat(req.body.protein) : undefined,
+        carbohydrates: req.body.carbohydrates ? parseFloat(req.body.carbohydrates) : undefined,
+        fats: req.body.fats ? parseFloat(req.body.fats) : undefined,
+        fiber: req.body.fiber ? parseFloat(req.body.fiber) : undefined
       },
-      ingredients: JSON.parse(req.body.ingredients),
+      ingredients: req.body.ingredients ? JSON.parse(req.body.ingredients) : undefined,
       spicyLevel: req.body.spicyLevel,
-      allergens: JSON.parse(req.body.allergens),
-      dietaryInfo: JSON.parse(req.body.dietaryInfo),
+      allergens: req.body.allergens ? JSON.parse(req.body.allergens) : [],
+      dietaryInfo: req.body.dietaryInfo ? JSON.parse(req.body.dietaryInfo) : [],
       category: req.body.category,
       isAvailable: req.body.isAvailable === 'true',
       isPopular: req.body.isPopular === 'true',
@@ -50,16 +56,24 @@ export const createProduct = async (req, res) => {
       additionalImages: imageUrls.slice(1)
     };
 
+    // Debug log parsed data
+    logger.info('Parsed product data:', productData);
+
     // Validate required fields
     const requiredFields = [
       'name', 'description', 'price', 'preparationTime',
       'calories', 'ingredients', 'category'
     ];
     
-    for (const field of requiredFields) {
-      if (!productData[field]) {
-        throw new ApiError(400, `${field} is required`);
+    const missingFields = requiredFields.filter(field => {
+      if (field === 'calories') {
+        return productData.nutritionInfo.calories === undefined;
       }
+      return !productData[field];
+    });
+
+    if (missingFields.length > 0) {
+      throw new ApiError(400, `Missing required fields: ${missingFields.join(', ')}`);
     }
 
     const product = await Product.create(productData);
@@ -69,33 +83,87 @@ export const createProduct = async (req, res) => {
       product
     });
   } catch (error) {
-    logger.error('Error in createProduct:', error);
+    logger.error('Error in createProduct:', {
+      error: error.message,
+      stack: error.stack,
+      body: req.body,
+      files: req.files
+    });
     res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
 export const getAllProducts = async (req, res) => {
   try {
-    const { category, tags, isPopular } = req.query;
+    logger.info('Getting all products with query:', req.query);
+
+    const { category, tags, isPopular, search } = req.query;
     const filter = {};
 
-    if (category) filter.category = category;
-    if (tags) filter.tags = { $in: tags.split(',') };
-    if (isPopular === 'true') filter.isPopular = true;
+    // Build filter
+    if (category) {
+      filter.category = category;
+    }
+    if (tags) {
+      filter.tags = { $in: tags.split(',') };
+    }
+    if (isPopular === 'true') {
+      filter.isPopular = true;
+    }
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
 
-    const products = await productService.getProducts(filter);
-    res.json(products);
+    // Add availability filter by default
+    filter.isAvailable = true;
+
+    logger.info('Applying filter:', filter);
+
+    // Get products
+    const products = await Product.find(filter)
+      .sort({ createdAt: -1 })
+      .lean();
+
+    logger.info(`Found ${products.length} products`);
+
+    res.json({
+      count: products.length,
+      products
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    logger.error('Error in getAllProducts:', error);
+    res.status(500).json({ 
+      message: 'Error fetching products',
+      error: error.message 
+    });
   }
 };
 
 export const getProduct = async (req, res) => {
   try {
+    logger.info('Getting product details:', {
+      productId: req.params.id
+    });
+
     const product = await productService.getProductById(req.params.id);
-    res.json(product);
+    
+    res.json({
+      message: 'Product retrieved successfully',
+      product
+    });
   } catch (error) {
-    res.status(404).json({ message: error.message });
+    logger.error('Error getting product:', {
+      error: error.message,
+      productId: req.params.id
+    });
+
+    res.status(error.statusCode || 404).json({ 
+      status: 'error',
+      message: error.message
+    });
   }
 };
 
