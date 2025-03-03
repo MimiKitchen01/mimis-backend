@@ -9,7 +9,7 @@
       "name": "Addresses",
       "item": [
         {
-          "name": "Add a new address",
+          "name": "Create a new address",
           "request": {
             "method": "POST",
             "header": [],
@@ -35,7 +35,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\n  \"type\": \"string\",\n  \"street\": \"string\",\n  \"city\": \"string\",\n  \"state\": \"string\",\n  \"zipCode\": \"string\",\n  \"isDefault\": false,\n  \"additionalInfo\": \"string\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -46,7 +46,7 @@
           "response": []
         },
         {
-          "name": "Get all addresses",
+          "name": "Get all addresses for the authenticated user",
           "request": {
             "method": "GET",
             "header": [],
@@ -74,36 +74,7 @@
           "response": []
         },
         {
-          "name": "Get address by ID",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/addresses/{id}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "addresses",
-                "{id}"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{authToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Update address",
+          "name": "Update an address",
           "request": {
             "method": "PATCH",
             "header": [],
@@ -127,21 +98,12 @@
                   "type": "string"
                 }
               ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
             }
           },
           "response": []
         },
         {
-          "name": "Delete address",
+          "name": "Delete an address",
           "request": {
             "method": "DELETE",
             "header": [],
@@ -154,36 +116,6 @@
                 "api",
                 "addresses",
                 "{id}"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{authToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Set address as default",
-          "request": {
-            "method": "PATCH",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/addresses/{id}/set-default",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "addresses",
-                "{id}",
-                "set-default"
               ]
             },
             "auth": {
@@ -905,14 +837,42 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/orders/list",
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get order by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{id}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "orders",
-                "list"
+                "{id}"
               ]
             },
             "auth": {
