@@ -1,7 +1,8 @@
 import express from 'express';
 import * as productController from '../controllers/product.controller.js';
-import { uploadToS3 } from '../middleware/upload.middleware.js';
+import { uploadProductImages } from '../middleware/upload.middleware.js'; // Changed from uploadToS3
 import auth from '../middleware/auth.js';
+import { adminAuth } from '../middleware/admin.middleware.js';
 
 /**
  * @swagger
@@ -161,7 +162,12 @@ const router = express.Router();
  *       403:
  *         description: Not authorized as admin
  */
-router.post('/', auth, uploadToS3.array('images', 8), productController.createProduct);
+router.post('/', 
+  auth, 
+  adminAuth, 
+  uploadProductImages, // Changed from uploadToS3.array('images', 8)
+  productController.createProduct
+);
 
 /**
  * @swagger

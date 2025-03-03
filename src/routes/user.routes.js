@@ -1,7 +1,8 @@
 import express from 'express';
 import * as userController from '../controllers/user.controller.js';
 import auth from '../middleware/auth.js';
-import { uploadToS3 } from '../middleware/upload.middleware.js';
+import { uploadSingleImage } from '../middleware/upload.middleware.js'; // Changed from uploadToS3
+import logger from '../utils/logger.js';
 
 /**
  * @swagger
@@ -16,7 +17,7 @@ const router = express.Router();
  * @swagger
  * /api/users/profile-image:
  *   post:
- *     summary: Update user profile image
+ *     summary: Upload user profile image
  *     tags: [Users]
  *     security:
  *       - BearerAuth: []
@@ -32,7 +33,7 @@ const router = express.Router();
  *               image:
  *                 type: string
  *                 format: binary
- *                 description: Image file (max 2MB, JPEG/PNG/WEBP)
+ *                 description: Profile image (JPEG, PNG, WEBP - max 2MB)
  *     responses:
  *       200:
  *         description: Profile image updated successfully
@@ -45,11 +46,23 @@ const router = express.Router();
  *                   type: string
  *                 imageUrl:
  *                   type: string
+ *       400:
+ *         description: Invalid request or no file uploaded
+ *       413:
+ *         description: File too large
  */
-router.post('/profile-image', 
-  auth, 
-  uploadToS3.single('image'), 
-  userController.updateProfileImage
+router.post(
+  '/profile-image',
+  auth,
+  uploadSingleImage,  // Changed from uploadToS3.single('image')
+  (req, res, next) => {
+    logger.info({
+      message: 'Processing profile image upload',
+      hasFile: !!req.file,
+      userId: req.user.userId
+    });
+    userController.updateProfileImage(req, res, next);
+  }
 );
 
 /**

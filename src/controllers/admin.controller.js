@@ -559,7 +559,7 @@ export const updateAdminProfileImage = async (req, res) => {
       throw new ApiError(404, 'Admin not found');
     }
 
-    admin.imageUrl = req.file.location; // AWS S3 file URL
+    admin.imageUrl = req.file.location; // Using single file location
     await admin.save();
 
     res.json({
@@ -567,6 +567,7 @@ export const updateAdminProfileImage = async (req, res) => {
       imageUrl: admin.imageUrl
     });
   } catch (error) {
+    logger.error('Error in updateAdminProfileImage:', error);
     res.status(error.statusCode || 400).json({ message: error.message });
   }
 };

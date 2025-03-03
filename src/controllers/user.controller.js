@@ -1,5 +1,6 @@
 import User from '../models/user.model.js';
 import { ApiError } from '../middleware/error.middleware.js';
+import logger from '../utils/logger.js';  // Add logger import
 
 export const updateProfile = async (req, res) => {
   try {
@@ -46,6 +47,7 @@ export const updateProfile = async (req, res) => {
       }
     });
   } catch (error) {
+    logger.error('Error in updateProfile:', error);
     res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
@@ -69,12 +71,19 @@ export const updatePassword = async (req, res) => {
 
     res.json({ message: 'Password updated successfully' });
   } catch (error) {
+    logger.error('Error in updatePassword:', error);
     res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
 export const updateProfileImage = async (req, res) => {
   try {
+    logger.info({
+      message: 'Updating profile image',
+      file: req.file,
+      userId: req.user.userId
+    });
+
     if (!req.file) {
       throw new ApiError(400, 'No image file uploaded');
     }
@@ -84,14 +93,25 @@ export const updateProfileImage = async (req, res) => {
       throw new ApiError(404, 'User not found');
     }
 
-    user.imageUrl = req.file.location; // AWS S3 file URL
+    user.imageUrl = req.file.location;
     await user.save();
+
+    logger.info({
+      message: 'Profile image updated successfully',
+      userId: user._id,
+      imageUrl: user.imageUrl
+    });
 
     res.json({
       message: 'Profile image updated successfully',
       imageUrl: user.imageUrl
     });
   } catch (error) {
+    logger.error('Error in updateProfileImage:', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.userId
+    });
     res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
