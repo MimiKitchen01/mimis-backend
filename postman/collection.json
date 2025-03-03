@@ -680,14 +680,9 @@
             }
           },
           "response": []
-        }
-      ]
-    },
-    {
-      "name": "Auth",
-      "item": [
+        },
         {
-          "name": "Request password reset",
+          "name": "Request password reset OTP",
           "request": {
             "method": "POST",
             "header": [],
@@ -715,35 +710,7 @@
           "response": []
         },
         {
-          "name": "Verify password reset token",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/verify-reset-token",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "verify-reset-token"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"token\": \"string\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Reset password using token",
+          "name": "Reset password using OTP",
           "request": {
             "method": "POST",
             "header": [],
@@ -760,7 +727,35 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"token\": \"string\",\n  \"newPassword\": \"string\"\n}",
+              "raw": "{\n  \"email\": \"string\",\n  \"otp\": \"string\",\n  \"newPassword\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify reset password OTP",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-reset-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify-reset-otp"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"string\",\n  \"otp\": \"string\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

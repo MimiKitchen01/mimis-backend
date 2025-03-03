@@ -87,6 +87,33 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
+export const verifyResetOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await User.findOne({
+      email,
+      'resetOTP.code': otp,
+      'resetOTP.expiresAt': { $gt: Date.now() }
+    });
+
+    if (!user) {
+      throw new ApiError(400, 'Invalid or expired OTP');
+    }
+
+    res.json({ 
+      message: 'OTP verified successfully',
+      email: user.email
+    });
+  } catch (error) {
+    logger.error('Verify reset OTP error:', {
+      error: error.message,
+      stack: error.stack
+    });
+    res.status(error.statusCode || 400).json({ message: error.message });
+  }
+};
+
 export const resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
@@ -98,7 +125,7 @@ export const resetPassword = async (req, res) => {
     });
 
     if (!user) {
-      throw new ApiError(400, 'Invalid or expired OTP');
+      throw new ApiError(400, 'Please verify your OTP first');
     }
 
     // Update password and clear reset OTP
