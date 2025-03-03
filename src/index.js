@@ -5,12 +5,14 @@ import mongoose from 'mongoose';
 import swaggerUi from 'swagger-ui-express';
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
-import addressRoutes from './routes/address.routes.js';
+import { addressRouter } from './routes/address.routes.js'; // Changed to named import
 import productRoutes from './routes/product.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import swaggerSpec from './config/swagger.config.js';
 
 const app = express();
+
+
 
 // Middleware
 app.use(cors());
@@ -24,10 +26,11 @@ app.get('/swagger.json', (req, res) => {
   res.send(swaggerSpec);
 });
 
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/addresses', addressRoutes);
+app.use('/api/addresses', addressRouter); // Use the named import
 app.use('/api/products', productRoutes);
 app.use('/api/admin', adminRoutes);
 

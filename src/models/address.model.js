@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const addressSchema = new mongoose.Schema({
   user: {
@@ -6,20 +6,10 @@ const addressSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  title: {
+  type: {
     type: String,
-    required: true,
-    trim: true
-  },
-  fullName: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  phoneNumber: {
-    type: String,
-    required: true,
-    trim: true
+    enum: ['Home', 'Work', 'Other'],
+    default: 'Home'
   },
   street: {
     type: String,
@@ -36,12 +26,7 @@ const addressSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  postalCode: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  country: {
+  zipCode: {
     type: String,
     required: true,
     trim: true
@@ -49,9 +34,27 @@ const addressSchema = new mongoose.Schema({
   isDefault: {
     type: Boolean,
     default: false
-  }
+  },
+  additionalInfo: {
+    type: String,
+    trim: true
+  },
+  latitude: Number,
+  longitude: Number
 }, {
   timestamps: true
 });
 
-module.exports = mongoose.model('Address', addressSchema);
+// Ensure only one default address per user
+addressSchema.pre('save', async function(next) {
+  if (this.isDefault) {
+    await this.constructor.updateMany(
+      { user: this.user, _id: { $ne: this._id } },
+      { $set: { isDefault: false } }
+    );
+  }
+  next();
+});
+
+// Export as named export instead of default export
+export const Address = mongoose.model('Address', addressSchema);

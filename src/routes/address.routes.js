@@ -1,58 +1,7 @@
-const express = require('express');
-const addressController = require('../controllers/address.controller');
-const auth = require('../middleware/auth');
-
-/**
- * @swagger
- * tags:
- *   name: Addresses
- *   description: Address management endpoints
- */
-
-/**
- * @swagger
- * components:
- *   schemas:
- *     Address:
- *       type: object
- *       required:
- *         - title
- *         - fullName
- *         - phoneNumber
- *         - street
- *         - city
- *         - state
- *         - postalCode
- *         - country
- *       properties:
- *         title:
- *           type: string
- *           example: Home
- *         fullName:
- *           type: string
- *           example: John Doe
- *         phoneNumber:
- *           type: string
- *           example: +1234567890
- *         street:
- *           type: string
- *           example: 123 Main St
- *         city:
- *           type: string
- *           example: New York
- *         state:
- *           type: string
- *           example: NY
- *         postalCode:
- *           type: string
- *           example: 10001
- *         country:
- *           type: string
- *           example: USA
- *         isDefault:
- *           type: boolean
- *           default: false
- */
+import express from 'express';
+import auth from '../middleware/auth.js';
+import { Address } from '../models/address.model.js';
+import { ApiError } from '../middleware/error.middleware.js';
 
 const router = express.Router();
 
@@ -60,7 +9,7 @@ const router = express.Router();
  * @swagger
  * /api/addresses:
  *   post:
- *     summary: Add a new address
+ *     summary: Create a new address
  *     tags: [Addresses]
  *     security:
  *       - BearerAuth: []
@@ -69,57 +18,65 @@ const router = express.Router();
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/Address'
- *     responses:
- *       201:
- *         description: Address created successfully
- *       401:
- *         description: Not authenticated
+ *             type: object
+ *             required:
+ *               - street
+ *               - city
+ *               - state
+ *               - zipCode
+ *             properties:
+ *               type:
+ *                 type: string
+ *                 enum: [Home, Work, Other]
+ *               street:
+ *                 type: string
+ *               city:
+ *                 type: string
+ *               state:
+ *                 type: string
+ *               zipCode:
+ *                 type: string
+ *               isDefault:
+ *                 type: boolean
+ *               additionalInfo:
+ *                 type: string
  */
-router.post('/', auth, addressController.addAddress);
+router.post('/', auth, async (req, res) => {
+  try {
+    const address = new Address({
+      ...req.body,
+      user: req.user.userId
+    });
+    await address.save();
+    res.status(201).json(address);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
 
 /**
  * @swagger
  * /api/addresses:
  *   get:
- *     summary: Get all addresses
+ *     summary: Get all addresses for the authenticated user
  *     tags: [Addresses]
  *     security:
  *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: List of addresses
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Address'
  */
-router.get('/', auth, addressController.getAllAddresses);
+router.get('/', auth, async (req, res) => {
+  try {
+    const addresses = await Address.find({ user: req.user.userId });
+    res.json(addresses);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 /**
  * @swagger
  * /api/addresses/{id}:
- *   get:
- *     summary: Get address by ID
- *     tags: [Addresses]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Address details
- *       404:
- *         description: Address not found
- *
  *   patch:
- *     summary: Update address
+ *     summary: Update an address
  *     tags: [Addresses]
  *     security:
  *       - BearerAuth: []
@@ -129,44 +86,39 @@ router.get('/', auth, addressController.getAllAddresses);
  *         required: true
  *         schema:
  *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/Address'
- *     responses:
- *       200:
- *         description: Address updated successfully
- *       404:
- *         description: Address not found
- *
- *   delete:
- *     summary: Delete address
- *     tags: [Addresses]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Address deleted successfully
- *       404:
- *         description: Address not found
  */
-router.get('/:id', auth, addressController.getAddress);
-router.patch('/:id', auth, addressController.updateAddress);
-router.delete('/:id', auth, addressController.deleteAddress);
+router.patch('/:id', auth, async (req, res) => {
+  try {
+    const address = await Address.findOne({
+      _id: req.params.id,
+      user: req.user.userId
+    });
+
+    if (!address) {
+      throw new ApiError(404, 'Address not found');
+    }
+
+    const allowedUpdates = ['type', 'street', 'city', 'state', 'zipCode', 'isDefault', 'additionalInfo'];
+    const updates = Object.keys(req.body);
+    
+    updates.forEach(update => {
+      if (allowedUpdates.includes(update)) {
+        address[update] = req.body[update];
+      }
+    });
+
+    await address.save();
+    res.json(address);
+  } catch (error) {
+    res.status(error.statusCode || 400).json({ message: error.message });
+  }
+});
 
 /**
  * @swagger
- * /api/addresses/{id}/set-default:
- *   patch:
- *     summary: Set address as default
+ * /api/addresses/{id}:
+ *   delete:
+ *     summary: Delete an address
  *     tags: [Addresses]
  *     security:
  *       - BearerAuth: []
@@ -176,12 +128,22 @@ router.delete('/:id', auth, addressController.deleteAddress);
  *         required: true
  *         schema:
  *           type: string
- *     responses:
- *       200:
- *         description: Address set as default successfully
- *       404:
- *         description: Address not found
  */
-router.patch('/:id/set-default', auth, addressController.setDefaultAddress);
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const address = await Address.findOneAndDelete({
+      _id: req.params.id,
+      user: req.user.userId
+    });
 
-module.exports = router;
+    if (!address) {
+      throw new ApiError(404, 'Address not found');
+    }
+
+    res.json({ message: 'Address deleted successfully' });
+  } catch (error) {
+    res.status(error.statusCode || 404).json({ message: error.message });
+  }
+});
+
+export { router as addressRouter };
