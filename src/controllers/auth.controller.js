@@ -3,6 +3,11 @@ import * as emailService from '../services/email.service.js';
 import User from '../models/user.model.js';
 import { ApiError } from '../middleware/error.middleware.js';
 import logger from '../utils/logger.js';
+import { randomBytes } from 'crypto';
+import { 
+  getResetOTPTemplate,
+  getPasswordResetConfirmationTemplate 
+} from '../templates/emailTemplates.js';
 
 export const register = async (req, res) => {
   try {
@@ -51,73 +56,58 @@ export const forgotPassword = async (req, res) => {
       throw new ApiError(404, 'User not found with this email');
     }
 
-    // Generate reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = Date.now() + 3600000; // 1 hour
+    // Generate 6-digit OTP
+    const resetOTP = Math.floor(100000 + Math.random() * 900000).toString();
+    const resetOTPExpiry = Date.now() + 600000; // 10 minutes
 
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = resetTokenExpiry;
+    // Save OTP to user
+    user.resetOTP = {
+      code: resetOTP,
+      expiresAt: resetOTPExpiry
+    };
     await user.save();
 
-    // Send reset email using the service
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    // Send OTP email
     await emailService.sendEmail({
       to: user.email,
-      subject: 'Password Reset Request',
-      html: getResetPasswordTemplate(user.fullName, resetUrl)
+      subject: 'Password Reset OTP',
+      html: getResetOTPTemplate(user.fullName, resetOTP)
     });
 
     res.json({ 
-      message: 'Password reset link sent to email',
+      message: 'Password reset OTP sent to email',
       email: user.email
     });
   } catch (error) {
-    logger.error('Forgot password error:', error);
-    res.status(error.statusCode || 500).json({ message: error.message });
-  }
-};
-
-export const verifyResetToken = async (req, res) => {
-  try {
-    const { token } = req.body;
-
-    const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() }
+    logger.error('Forgot password error:', {
+      error: error.message,
+      stack: error.stack
     });
-
-    if (!user) {
-      throw new ApiError(400, 'Password reset token is invalid or has expired');
-    }
-
-    res.json({ message: 'Token is valid', email: user.email });
-  } catch (error) {
-    logger.error('Verify reset token error:', error);
-    res.status(error.statusCode || 400).json({ message: error.message });
+    res.status(error.statusCode || 500).json({ message: error.message });
   }
 };
 
 export const resetPassword = async (req, res) => {
   try {
-    const { token, newPassword } = req.body;
+    const { email, otp, newPassword } = req.body;
 
     const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() }
+      email,
+      'resetOTP.code': otp,
+      'resetOTP.expiresAt': { $gt: Date.now() }
     });
 
     if (!user) {
-      throw new ApiError(400, 'Password reset token is invalid or has expired');
+      throw new ApiError(400, 'Invalid or expired OTP');
     }
 
-    // Update password and clear reset token
+    // Update password and clear reset OTP
     user.password = newPassword;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
+    user.resetOTP = undefined;
     await user.save();
 
     // Send confirmation email
-    await sendEmail({
+    await emailService.sendEmail({
       to: user.email,
       subject: 'Password Reset Successful',
       html: getPasswordResetConfirmationTemplate(user.fullName)

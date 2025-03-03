@@ -44,8 +44,10 @@ const userSchema = new mongoose.Schema({
     enum: Object.values(ROLES),
     default: ROLES.USER
   },
-  resetPasswordToken: String,
-  resetPasswordExpires: Date
+  resetOTP: {
+    code: String,
+    expiresAt: Date
+  }
 }, {
   timestamps: true
 });

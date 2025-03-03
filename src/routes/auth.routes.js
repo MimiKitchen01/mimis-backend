@@ -57,11 +57,6 @@ const router = express.Router();
  *                 minLength: 6
  *               fullName:
  *                 type: string
- *     responses:
- *       201:
- *         description: Registration successful
- *       400:
- *         description: Invalid input or email already exists
  */
 router.post('/register', authController.register);
 
@@ -154,8 +149,8 @@ router.get('/me', auth, authController.getProfile);
  * @swagger
  * /api/auth/forgot-password:
  *   post:
- *     summary: Request password reset
- *     tags: [Auth]
+ *     summary: Request password reset OTP
+ *     tags: [Authentication]
  *     requestBody:
  *       required: true
  *       content:
@@ -173,30 +168,10 @@ router.post('/forgot-password', authController.forgotPassword);
 
 /**
  * @swagger
- * /api/auth/verify-reset-token:
- *   post:
- *     summary: Verify password reset token
- *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - token
- *             properties:
- *               token:
- *                 type: string
- */
-router.post('/verify-reset-token', authController.verifyResetToken);
-
-/**
- * @swagger
  * /api/auth/reset-password:
  *   post:
- *     summary: Reset password using token
- *     tags: [Auth]
+ *     summary: Reset password using OTP
+ *     tags: [Authentication]
  *     requestBody:
  *       required: true
  *       content:
@@ -204,10 +179,14 @@ router.post('/verify-reset-token', authController.verifyResetToken);
  *           schema:
  *             type: object
  *             required:
- *               - token
+ *               - email
+ *               - otp
  *               - newPassword
  *             properties:
- *               token:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               otp:
  *                 type: string
  *               newPassword:
  *                 type: string

@@ -278,3 +278,65 @@ export const getPasswordResetConfirmationTemplate = (fullName) => {
     </html>
   `;
 };
+
+export const getResetOTPTemplate = (fullName, otp) => {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          font-family: Arial, sans-serif;
+        }
+        .header {
+          background-color: #f8a035;
+          color: white;
+          padding: 20px;
+          text-align: center;
+          border-radius: 5px 5px 0 0;
+        }
+        .content {
+          padding: 20px;
+          background-color: #ffffff;
+          border: 1px solid #dddddd;
+        }
+        .otp-code {
+          font-size: 32px;
+          font-weight: bold;
+          text-align: center;
+          color: #f8a035;
+          margin: 20px 0;
+          letter-spacing: 5px;
+        }
+        .footer {
+          text-align: center;
+          padding: 20px;
+          color: #666666;
+          font-size: 12px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Password Reset</h1>
+        </div>
+        <div class="content">
+          <h2>Hello ${fullName}!</h2>
+          <p>You have requested to reset your password. Use the following OTP code to proceed:</p>
+          <div class="otp-code">${otp}</div>
+          <p>This code will expire in 10 minutes.</p>
+          <p>If you didn't request this reset, please ignore this email.</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated message, please do not reply.</p>
+          <p>&copy; ${new Date().getFullYear()} Mimi's Kitchen. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
