@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { ROLES } from '../constants/index.js';
 
 const userSchema = new mongoose.Schema({
   email: {
@@ -37,6 +38,11 @@ const userSchema = new mongoose.Schema({
   dateOfBirth: {
     type: Date,
     default: null
+  },
+  role: {
+    type: String,
+    enum: Object.values(ROLES),
+    default: ROLES.USER
   }
 }, {
   timestamps: true
@@ -51,6 +57,18 @@ userSchema.pre('save', async function(next) {
 
 userSchema.methods.comparePassword = async function(password) {
   return bcrypt.compare(password, this.password);
+};
+
+// Add static method to create admin
+userSchema.statics.createAdmin = async function(adminData) {
+  const admin = new this({
+    email: adminData.email,
+    password: adminData.password,
+    fullName: adminData.fullName || adminData.email.split('@')[0],
+    role: ROLES.ADMIN,
+    isVerified: true
+  });
+  return admin.save();
 };
 
 export default mongoose.model('User', userSchema);

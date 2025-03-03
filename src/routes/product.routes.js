@@ -78,7 +78,7 @@ const router = express.Router();
  * @swagger
  * /api/products:
  *   post:
- *     summary: Create a new product
+ *     summary: Create a new product (Admin only)
  *     tags: [Products]
  *     security:
  *       - BearerAuth: []
@@ -91,31 +91,75 @@ const router = express.Router();
  *             required:
  *               - name
  *               - description
- *               - category
  *               - price
+ *               - preparationTime
+ *               - calories
  *               - ingredients
+ *               - category
  *               - images
  *             properties:
  *               name:
  *                 type: string
  *               description:
  *                 type: string
- *               category:
- *                 type: string
  *               price:
  *                 type: number
+ *               preparationTime:
+ *                 type: integer
+ *                 description: Preparation time in minutes
+ *               calories:
+ *                 type: integer
+ *               protein:
+ *                 type: number
+ *               carbohydrates:
+ *                 type: number
+ *               fats:
+ *                 type: number
+ *               fiber:
+ *                 type: number
  *               ingredients:
- *                 type: array
- *                 items:
- *                   type: string
+ *                 type: string
+ *                 format: json
+ *                 example: '["Chicken", "Rice", "Vegetables"]'
+ *               spicyLevel:
+ *                 type: string
+ *                 enum: [Not Spicy, Mild, Medium, Hot, Extra Hot]
+ *               allergens:
+ *                 type: string
+ *                 format: json
+ *                 example: '["Milk", "Eggs"]'
+ *               dietaryInfo:
+ *                 type: string
+ *                 format: json
+ *                 example: '["Vegetarian", "Gluten-Free"]'
+ *               category:
+ *                 type: string
+ *                 enum: [Appetizers, Main Course, Desserts, Beverages, Sides, Salads, Soups, Breakfast, Lunch, Dinner]
+ *               isAvailable:
+ *                 type: boolean
+ *               isPopular:
+ *                 type: boolean
+ *               isSpecial:
+ *                 type: boolean
+ *               customizationOptions:
+ *                 type: string
+ *                 format: json
+ *                 example: '[{"name":"Size","options":[{"name":"Large","price":2}]}]'
  *               images:
  *                 type: array
  *                 items:
  *                   type: string
  *                   format: binary
+ *                 description: Minimum 2, Maximum 8 images. First image will be the main image.
  *     responses:
  *       201:
  *         description: Product created successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized as admin
  */
 router.post('/', auth, uploadToS3.array('images', 8), productController.createProduct);
 

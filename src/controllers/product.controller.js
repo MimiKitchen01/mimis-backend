@@ -4,12 +4,49 @@ import { ApiError } from '../middleware/error.middleware.js';
 
 export const createProduct = async (req, res, next) => {
   try {
-    // Handle multipart form data
+    // Validate admin role
+    if (req.user.role !== 'admin') {
+      throw new ApiError(403, 'Only admins can create products');
+    }
+
+    // Parse form data
     const productData = {
-      ...req.body,
+      name: req.body.name,
+      description: req.body.description,
+      price: parseFloat(req.body.price),
+      preparationTime: parseInt(req.body.preparationTime),
+      nutritionInfo: {
+        calories: parseInt(req.body.calories),
+        protein: parseFloat(req.body.protein),
+        carbohydrates: parseFloat(req.body.carbohydrates),
+        fats: parseFloat(req.body.fats),
+        fiber: parseFloat(req.body.fiber)
+      },
       ingredients: JSON.parse(req.body.ingredients),
+      spicyLevel: req.body.spicyLevel,
+      allergens: JSON.parse(req.body.allergens),
+      dietaryInfo: JSON.parse(req.body.dietaryInfo),
+      category: req.body.category,
+      isAvailable: req.body.isAvailable === 'true',
+      isPopular: req.body.isPopular === 'true',
+      isSpecial: req.body.isSpecial === 'true',
+      customizationOptions: req.body.customizationOptions 
+        ? JSON.parse(req.body.customizationOptions) 
+        : [],
       ...formatImageUrls(req.files)
     };
+
+    // Validate required fields
+    const requiredFields = [
+      'name', 'description', 'price', 'preparationTime',
+      'calories', 'ingredients', 'category'
+    ];
+    
+    for (const field of requiredFields) {
+      if (!productData[field]) {
+        throw new ApiError(400, `${field} is required`);
+      }
+    }
 
     const product = await productService.createProduct(productData);
     
@@ -49,6 +86,11 @@ export const getProduct = async (req, res) => {
 
 export const updateProduct = async (req, res, next) => {
   try {
+    // Validate admin role
+    if (req.user.role !== 'admin') {
+      throw new ApiError(403, 'Only admins can update products');
+    }
+
     let updateData = { ...req.body };
     
     // Handle image updates if files are included
@@ -77,6 +119,11 @@ export const updateProduct = async (req, res, next) => {
 
 export const deleteProduct = async (req, res) => {
   try {
+    // Validate admin role
+    if (req.user.role !== 'admin') {
+      throw new ApiError(403, 'Only admins can delete products');
+    }
+
     await productService.deleteProduct(req.params.id);
     res.json({ message: 'Product deleted successfully' });
   } catch (error) {

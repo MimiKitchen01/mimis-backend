@@ -10,14 +10,85 @@ const productSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  price: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+  preparationTime: {
+    type: Number,
+    required: true,
+    min: 1,
+    description: 'Preparation time in minutes'
+  },
+  nutritionInfo: {
+    calories: {
+      type: Number,
+      required: true
+    },
+    protein: Number,
+    carbohydrates: Number,
+    fats: Number,
+    fiber: Number
+  },
+  ingredients: [{
+    type: String,
+    required: true
+  }],
+  spicyLevel: {
+    type: String,
+    enum: ['Not Spicy', 'Mild', 'Medium', 'Hot', 'Extra Hot'],
+    default: 'Not Spicy'
+  },
+  allergens: [{
+    type: String,
+    enum: [
+      'Milk', 'Eggs', 'Fish', 'Shellfish', 'Tree Nuts', 
+      'Peanuts', 'Wheat', 'Soybeans', 'None'
+    ]
+  }],
+  dietaryInfo: [{
+    type: String,
+    enum: [
+      'Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free',
+      'Keto', 'Paleo', 'Halal', 'Kosher'
+    ]
+  }],
   category: {
+    type: String,
+    required: true,
+    enum: [
+      'Appetizers', 'Main Course', 'Desserts', 'Beverages',
+      'Sides', 'Salads', 'Soups', 'Breakfast', 'Lunch', 'Dinner'
+    ]
+  },
+  imageUrl: {
     type: String,
     required: true
   },
-  tags: [{
+  additionalImages: [{
     type: String
   }],
-  rating: {
+  isAvailable: {
+    type: Boolean,
+    default: true
+  },
+  isPopular: {
+    type: Boolean,
+    default: false
+  },
+  isSpecial: {
+    type: Boolean,
+    default: false
+  },
+  customizationOptions: [{
+    name: String,
+    options: [{
+      name: String,
+      price: Number
+    }]
+  }],
+  ratings: {
     average: {
       type: Number,
       default: 0,
@@ -32,46 +103,14 @@ const productSchema = new mongoose.Schema({
   orderCount: {
     type: Number,
     default: 0
-  },
-  price: {
-    type: Number,
-    required: true
-  },
-  discountedPrice: {
-    type: Number
-  },
-  ingredients: [{
-    type: String,
-    required: true
-  }],
-  imageUrl: {
-    type: String,
-    required: true
-  },
-  additionalImages: [{
-    type: String
-  }],
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  isPopular: {
-    type: Boolean,
-    default: false
-  },
-  nutritionInfo: {
-    calories: Number,
-    protein: Number,
-    carbohydrates: Number,
-    fats: Number
   }
 }, {
   timestamps: true
 });
 
-// Add validation for total number of images
+// Validate number of images
 productSchema.pre('save', function(next) {
-  const totalImages = 1 + (this.additionalImages?.length || 0); // Main image + additional images
+  const totalImages = 1 + (this.additionalImages?.length || 0);
   if (totalImages < 2) {
     next(new Error('Product must have at least 2 images'));
   } else if (totalImages > 8) {

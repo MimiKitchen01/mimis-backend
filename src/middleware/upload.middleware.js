@@ -38,6 +38,30 @@ export const uploadToS3 = multer({
   fileFilter
 });
 
+export const uploadProfileImage = multer({
+  storage: multerS3({
+    s3: s3Client,
+    bucket: process.env.AWS_BUCKET_NAME,
+    key: (req, file, cb) => {
+      const fileName = `${Date.now()}_${Math.round(Math.random() * 1E9)}${path.extname(file.originalname)}`;
+      cb(null, `profiles/${req.user.userId}/${fileName}`);
+    },
+    contentType: multerS3.AUTO_CONTENT_TYPE
+  }),
+  limits: {
+    fileSize: 2 * 1024 * 1024, // 2MB
+    files: 1
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.mimetype)) {
+      cb(new ApiError(400, 'Invalid file type. Only JPEG, PNG and WEBP allowed'), false);
+      return;
+    }
+    cb(null, true);
+  }
+});
+
 export const formatImageUrls = (files) => {
   if (!files || files.length === 0) {
     throw new ApiError(400, 'At least 2 images are required');
