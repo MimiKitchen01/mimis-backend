@@ -191,14 +191,7 @@ router.post('/create', auth, orderController.createOrder);
  *               items:
  *                 $ref: '#/components/schemas/Order'
  */
-router.get('/', auth, (req, res, next) => {
-  logger.info({
-    message: 'Getting user orders',
-    userId: req.user.userId,
-    query: req.query
-  });
-  orderController.getOrders(req, res, next);
-});
+router.get('/list', auth, orderController.getOrders);
 
 /**
  * @swagger
@@ -218,7 +211,16 @@ router.get('/', auth, (req, res, next) => {
  *       200:
  *         description: Order details
  */
-router.get('/:id', auth, orderController.getOrderById);
+router.get('/:id', auth, (req, res, next) => {
+  // Validate ObjectId before processing
+  if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+    return res.status(400).json({ 
+      status: 'error', 
+      message: 'Invalid order ID format' 
+    });
+  }
+  orderController.getOrderById(req, res, next);
+});
 
 /**
  * @swagger

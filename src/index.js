@@ -12,8 +12,12 @@ import productRoutes from './routes/product.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import orderRoutes from './routes/order.routes.js';
 import swaggerSpec from './config/swagger.config.js';
+import { requestLogger } from './middleware/logging.middleware.js';
 
 const app = express();
+
+// Add request logging middleware before other middleware
+app.use(requestLogger);
 
 // Request logging middleware
 app.use((req, res, next) => {
