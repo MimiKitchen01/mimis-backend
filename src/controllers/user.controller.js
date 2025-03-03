@@ -1,6 +1,7 @@
 import User from '../models/user.model.js';
 import { ApiError } from '../middleware/error.middleware.js';
-import logger from '../utils/logger.js';  // Add logger import
+import logger from '../utils/logger.js';
+import * as imageService from '../services/image.service.js';
 
 export const updateProfile = async (req, res) => {
   try {
@@ -78,29 +79,31 @@ export const updatePassword = async (req, res) => {
 
 export const updateProfileImage = async (req, res) => {
   try {
-    logger.info({
-      message: 'Updating profile image',
-      file: req.file,
-      userId: req.user.userId
-    });
+    const { file } = req;
+    
+    // Validate image
+    imageService.validateImage(file);
 
-    if (!req.file) {
-      throw new ApiError(400, 'No image file uploaded');
-    }
-
+    // Get user
     const user = await User.findById(req.user.userId);
     if (!user) {
       throw new ApiError(404, 'User not found');
     }
 
-    user.imageUrl = req.file.location;
+    // Store old image URL for cleanup
+    const oldImageUrl = user.imageUrl;
+
+    // Upload new image
+    const imageUrl = await imageService.uploadImage(file, user._id, 'profile');
+    
+    // Update user profile
+    user.imageUrl = imageUrl;
     await user.save();
 
-    logger.info({
-      message: 'Profile image updated successfully',
-      userId: user._id,
-      imageUrl: user.imageUrl
-    });
+    // Delete old image if exists
+    if (oldImageUrl) {
+      await imageService.deleteImage(oldImageUrl);
+    }
 
     res.json({
       message: 'Profile image updated successfully',
@@ -109,7 +112,6 @@ export const updateProfileImage = async (req, res) => {
   } catch (error) {
     logger.error('Error in updateProfileImage:', {
       error: error.message,
-      stack: error.stack,
       userId: req.user?.userId
     });
     res.status(error.statusCode || 400).json({ message: error.message });

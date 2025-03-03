@@ -214,3 +214,67 @@ export const getOrderConfirmationTemplate = (order, user) => {
     </html>
   `;
 };
+
+export const getResetPasswordTemplate = (fullName, resetUrl) => {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        /* ...existing styles... */
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Password Reset Request</h1>
+        </div>
+        <div class="content">
+          <h2>Hello ${fullName}!</h2>
+          <p>You recently requested to reset your password. Click the button below to reset it:</p>
+          
+          <a href="${resetUrl}" class="button">Reset Password</a>
+          
+          <p>This password reset link will expire in 1 hour.</p>
+          <p>If you didn't request this reset, please ignore this email.</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated message, please do not reply.</p>
+          <p>&copy; ${new Date().getFullYear()} Mimi's Kitchen. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+export const getPasswordResetConfirmationTemplate = (fullName) => {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        /* ...existing styles... */
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Password Reset Successful</h1>
+        </div>
+        <div class="content">
+          <h2>Hello ${fullName}!</h2>
+          <p>Your password has been successfully reset.</p>
+          <p>If you did not perform this action, please contact our support team immediately.</p>
+          
+          <a href="${process.env.FRONTEND_URL}/login" class="button">Login to Your Account</a>
+        </div>
+        <div class="footer">
+          <p>This is an automated message, please do not reply.</p>
+          <p>&copy; ${new Date().getFullYear()} Mimi's Kitchen. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};

@@ -1,13 +1,26 @@
 import * as productService from '../services/product.service.js';
 import { formatImageUrls } from '../middleware/upload.middleware.js';
 import { ApiError } from '../middleware/error.middleware.js';
+import Product from '../models/product.model.js';
+import logger from '../utils/logger.js';
+import * as imageService from '../services/image.service.js';
 
-export const createProduct = async (req, res, next) => {
+export const createProduct = async (req, res) => {
   try {
     // Validate admin role
     if (req.user.role !== 'admin') {
       throw new ApiError(403, 'Only admins can create products');
     }
+
+    // Validate at least one image
+    if (!req.files || req.files.length === 0) {
+      throw new ApiError(400, 'At least one image is required');
+    }
+
+    // Validate and upload all images
+    const imageUrls = await Promise.all(
+      req.files.map(file => imageService.uploadImage(file, req.user.userId, 'product'))
+    );
 
     // Parse form data
     const productData = {
@@ -33,7 +46,8 @@ export const createProduct = async (req, res, next) => {
       customizationOptions: req.body.customizationOptions 
         ? JSON.parse(req.body.customizationOptions) 
         : [],
-      ...formatImageUrls(req.files)
+      imageUrl: imageUrls[0],
+      additionalImages: imageUrls.slice(1)
     };
 
     // Validate required fields
@@ -48,14 +62,15 @@ export const createProduct = async (req, res, next) => {
       }
     }
 
-    const product = await productService.createProduct(productData);
+    const product = await Product.create(productData);
     
     res.status(201).json({
       message: 'Product created successfully',
       product
     });
   } catch (error) {
-    next(error);
+    logger.error('Error in createProduct:', error);
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
