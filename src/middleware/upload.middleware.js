@@ -4,6 +4,7 @@ import path from 'path';
 import { ApiError } from './error.middleware.js';
 import s3Client from '../config/s3.config.js';
 import logger from '../utils/logger.js';
+import chalk from 'chalk';
 
 const fileFilter = (req, file, cb) => {
   logger.info({
@@ -51,22 +52,42 @@ const createS3Storage = (folderPath) =>
 
 // Profile image upload middleware
 export const uploadSingleImage = (req, res, next) => {
-  logger.info({
-    message: 'Starting image upload',
-    contentType: req.headers['content-type'],
-    hasBody: !!req.body,
-    bodyKeys: req.body ? Object.keys(req.body) : [],
-    files: req.files,
-    rawBody: req.rawBody,
+  logger.info(chalk.cyan('📤 Starting image upload...'));
+
+  // Initial request logging
+  logger.info(chalk.blue('🔍 Request Details:'), {
+    contentType: chalk.cyan(req.headers['content-type']),
+    contentLength: chalk.yellow(req.headers['content-length']),
+    boundary: chalk.magenta(req.headers['content-type']?.split('boundary=')[1])
   });
 
   const upload = multer({
     storage: createS3Storage('profiles'),
     limits: { 
-      fileSize: 2 * 1024 * 1024, // 2MB 
-      fieldSize: 10 * 1024 * 1024 // 10MB field size limit
+      fileSize: 10 * 1024 * 1024, // 10MB
+      fieldSize: 50 * 1024 * 1024 // 50MB field size limit
     },
-    fileFilter
+    fileFilter: (req, file, cb) => {
+      logger.info(chalk.blue('📝 Processing File:'), {
+        fieldname: chalk.cyan(file.fieldname),
+        originalname: chalk.yellow(file.originalname),
+        mimetype: chalk.magenta(file.mimetype),
+        encoding: chalk.gray(file.encoding)
+      });
+
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.mimetype)) {
+        return cb(new Error('Only JPEG, PNG and WEBP files are allowed'));
+      }
+
+      // Validate fieldname
+      if (file.fieldname !== 'image') {
+        return cb(new Error('Form field must be named "image"'));
+      }
+
+      cb(null, true);
+    }
   }).single('image');
 
   // Add raw body parsing
@@ -86,6 +107,17 @@ export const uploadSingleImage = (req, res, next) => {
       error: err?.message
     });
 
+    logger.info(chalk.blue('📤 Upload Result:'), {
+      hasFile: !!req.file,
+      fileDetails: req.file ? {
+        originalname: req.file.originalname,
+        size: `${(req.file.size / 1024).toFixed(2)}KB`,
+        mimetype: req.file.mimetype,
+        fieldname: req.file.fieldname
+      } : null,
+      error: err?.message
+    });
+
     if (err instanceof multer.MulterError) {
       logger.error('Multer error:', err);
       return res.status(400).json({
@@ -97,7 +129,7 @@ export const uploadSingleImage = (req, res, next) => {
     }
 
     if (err) {
-      logger.error('Upload error:', err);
+      logger.error(chalk.red('❌ Upload error:'), err);
       return res.status(500).json({
         message: 'Error uploading file',
         code: 'UPLOAD_ERROR'
@@ -105,6 +137,7 @@ export const uploadSingleImage = (req, res, next) => {
     }
 
     if (!req.file) {
+      logger.error(chalk.yellow('⚠️ No file uploaded'));
       return res.status(400).json({
         message: 'No file uploaded',
         code: 'NO_FILE',
@@ -112,9 +145,10 @@ export const uploadSingleImage = (req, res, next) => {
       });
     }
 
-    logger.info('File uploaded successfully:', {
-      filename: req.file.originalname,
-      location: req.file.location
+    logger.info(chalk.green('✅ File uploaded successfully:'), {
+      filename: chalk.blue(req.file.originalname),
+      size: chalk.yellow(`${(req.file.size / 1024).toFixed(2)}KB`),
+      type: chalk.cyan(req.file.mimetype)
     });
 
     next();

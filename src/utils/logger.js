@@ -1,76 +1,103 @@
 import winston from 'winston';
+import chalk from 'chalk';
 
-const customFormat = winston.format.printf(({ level, message, timestamp, ...meta }) => {
-  const logObject = {
-    timestamp,
-    level,
-    message: message || meta.type || 'LOG',
-    endpoint: meta.path || '',
-    method: meta.method || '',
-    duration: meta.duration || '',
-    status: meta.status,
-    userId: meta.userId,
-    error: meta.error ? {
-      name: meta.error.name,
-      message: meta.error.message,
-      stack: process.env.NODE_ENV === 'development' ? meta.error.stack : undefined
-    } : undefined,
-    ...meta
+const { createLogger, format, transports } = winston;
+const { combine, timestamp, printf } = format;
+
+// Enhanced console format with better object formatting
+const consoleFormat = printf(({ level, message, timestamp, ...meta }) => {
+  const levelColors = {
+    error: chalk.red,
+    warn: chalk.yellow,
+    info: chalk.green,
+    debug: chalk.blue
   };
 
-  // Clean up undefined values
-  Object.keys(logObject).forEach(key => 
-    logObject[key] === undefined && delete logObject[key]
-  );
+  const colorize = levelColors[level] || chalk.white;
+  const timeString = chalk.gray(timestamp);
+  
+  // Better object formatting
+  const formatObject = (obj) => {
+    if (typeof obj === 'object' && obj !== null) {
+      return JSON.stringify(obj, null, 2)
+        .split('\n')
+        .map(line => chalk.cyan(line))
+        .join('\n');
+    }
+    return obj;
+  };
 
-  return JSON.stringify(logObject, null, 2);
+  // Format message or object
+  const formattedMessage = typeof message === 'object' 
+    ? formatObject(message)
+    : message;
+
+  // Format metadata
+  const metaString = Object.keys(meta).length 
+    ? '\n' + formatObject(meta)
+    : '';
+
+  return `${timeString} ${colorize(level.toUpperCase())} ${formattedMessage}${metaString}`;
 });
 
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    customFormat
+// Create the logger
+const logger = createLogger({
+  format: combine(
+    timestamp(),
+    format.json()
   ),
   transports: [
-    new winston.transports.File({ 
-      filename: 'logs/error.log', 
-      level: 'error'
-    }),
-    new winston.transports.File({ 
-      filename: 'logs/combined.log' 
-    }),
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        customFormat
+    new transports.Console({
+      format: combine(
+        timestamp(),
+        consoleFormat
       )
+    }),
+    new transports.File({ 
+      filename: 'logs/error.log', 
+      level: 'error' 
+    }),
+    new transports.File({ 
+      filename: 'logs/combined.log' 
     })
   ]
 });
 
-// Add helper methods
+// Enhanced request logging
 logger.logRequest = (req) => {
-  logger.info({
+  const logData = {
     type: 'REQUEST',
+    timestamp: new Date().toISOString(),
     method: req.method,
     path: req.originalUrl,
-    query: req.query,
+    headers: {
+      'user-agent': req.headers['user-agent'],
+      'content-type': req.headers['content-type'],
+      authorization: req.headers.authorization ? '**present**' : undefined
+    },
+    query: Object.keys(req.query).length ? req.query : undefined,
     body: req.method !== 'GET' ? req.body : undefined,
     userId: req?.user?.userId
-  });
+  };
+
+  logger.info(logData);
 };
 
+// Enhanced response logging
 logger.logResponse = (req, res, duration) => {
-  logger.info({
+  const logData = {
     type: 'RESPONSE',
+    timestamp: new Date().toISOString(),
     method: req.method,
     path: req.originalUrl,
     status: res.statusCode,
     duration: `${duration}ms`,
-    userId: req?.user?.userId
-  });
+    userId: req?.user?.userId,
+    contentLength: res.get('content-length'),
+    contentType: res.get('content-type')
+  };
+
+  logger.info(logData);
 };
 
 logger.logError = (error, req = {}) => {

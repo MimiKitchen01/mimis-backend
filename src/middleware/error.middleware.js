@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import logger from '../utils/logger.js';
 
 export class ApiError extends Error {
@@ -10,14 +11,13 @@ export class ApiError extends Error {
 
 export const errorHandler = (err, req, res, next) => {
   logger.error({
-    message: err.message,
-    stack: err.stack,
-    path: req.path,
-    method: req.method,
-    body: req.body,
-    query: req.query,
-    params: req.params,
-    user: req.user
+    message: chalk.red.bold('🚨 Error:'),
+    details: {
+      path: chalk.yellow(req.path),
+      method: chalk.cyan(req.method),
+      error: chalk.red(err.message),
+      stack: process.env.NODE_ENV === 'development' ? chalk.gray(err.stack) : undefined
+    }
   });
 
   err.statusCode = err.statusCode || 500;

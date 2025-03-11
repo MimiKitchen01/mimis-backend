@@ -1,7 +1,8 @@
 console.log('Loading auth routes for Swagger documentation');
 import express from 'express';
 import * as authController from '../controllers/auth.controller.js';
-import auth from '../middleware/auth.js';
+import auth from '../middleware/auth.js';  // Now correctly importing default export
+import passport from 'passport';
 
 /**
  * @swagger
@@ -222,5 +223,36 @@ router.post('/reset-password', authController.resetPassword);
  *         description: Invalid or expired OTP
  */
 router.post('/verify-reset-otp', authController.verifyResetOTP);
+
+/**
+ * @swagger
+ * /api/auth/google:
+ *   get:
+ *     summary: Authenticate with Google
+ *     tags: [Authentication]
+ */
+router.get('/google',
+  passport.authenticate('google', { 
+    scope: ['profile', 'email'],
+    session: false 
+  })
+);
+
+/**
+ * @swagger
+ * /api/auth/google/callback:
+ *   get:
+ *     summary: Google auth callback
+ *     tags: [Authentication]
+ */
+router.get('/google/callback',
+  passport.authenticate('google', { 
+    failureRedirect: '/api/auth/google/failure',
+    session: false
+  }),
+  authController.googleAuthSuccess
+);
+
+router.get('/google/failure', authController.googleAuthFailure);
 
 export default router;

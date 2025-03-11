@@ -1,6 +1,7 @@
 import Product from '../models/product.model.js';
 import logger from '../utils/logger.js';
 import { ApiError } from '../middleware/error.middleware.js';
+import chalk from 'chalk';
 
 export const validateImages = (imageUrl, additionalImages) => {
   const totalImages = 1 + (additionalImages?.length || 0);
@@ -13,6 +14,11 @@ export const validateImages = (imageUrl, additionalImages) => {
 };
 
 export const createProduct = async (productData) => {
+  logger.info({
+    message: chalk.blue('📦 Creating new product:'),
+    name: chalk.cyan(productData.name),
+    category: chalk.yellow(productData.category)
+  });
   validateImages(productData.imageUrl, productData.additionalImages);
   const product = new Product(productData);
   await product.save();
@@ -21,7 +27,10 @@ export const createProduct = async (productData) => {
 
 export const getProducts = async (filter = {}) => {
   try {
-    logger.info('Fetching products with filter:', filter);
+    logger.info({
+      message: chalk.blue('🔍 Fetching products:'),
+      filter: chalk.cyan(JSON.stringify(filter))
+    });
     
     const products = await Product.find(filter)
       .sort({ createdAt: -1 });

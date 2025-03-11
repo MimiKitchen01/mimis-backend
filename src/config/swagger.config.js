@@ -1,4 +1,14 @@
 import swaggerJsdoc from 'swagger-jsdoc';
+import chalk from 'chalk';
+import logger from '../utils/logger.js';
+
+logger.info({
+  message: chalk.blue('📚 Loading Swagger configuration'),
+  details: {
+    title: chalk.cyan("Mimi's Kitchen API"),
+    version: chalk.yellow('1.0.0')
+  }
+});
 
 const options = {
   definition: {

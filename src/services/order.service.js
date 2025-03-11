@@ -2,12 +2,23 @@ import Order from '../models/order.model.js';
 import { getOrCreateCart, clearCart } from './cart.service.js';
 import { ApiError } from '../middleware/error.middleware.js';
 import { ORDER_STATUS, PAYMENT_STATUS } from '../constants/index.js';
+import chalk from 'chalk';
+import logger from '../utils/logger.js';
 
 export const createOrder = async (userId, addressId) => {
   const cart = await getOrCreateCart(userId);
   if (cart.items.length === 0) {
     throw new ApiError(400, 'Cart is empty');
   }
+
+  logger.info({
+    message: chalk.blue('🛍️ Creating new order:'),
+    details: {
+      userId: chalk.cyan(userId),
+      items: chalk.yellow(cart.items.length + ' items'),
+      total: chalk.green(`$${cart.total.toFixed(2)}`)
+    }
+  });
 
   const order = new Order({
     user: userId,

@@ -1,11 +1,18 @@
 import User from '../models/user.model.js';
 import jwt from 'jsonwebtoken';
+import chalk from 'chalk';
+import logger from '../utils/logger.js';
 
 export const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
 export const createUser = async (userData) => {
+  logger.info({
+    message: chalk.blue('👤 Creating new user:'),
+    email: chalk.cyan(userData.email)
+  });
+
   const existingUser = await User.findOne({ email: userData.email });
   if (existingUser) {
     throw new Error('Email already registered');
@@ -42,6 +49,11 @@ export const verifyUserOTP = async (email, otp) => {
 };
 
 export const loginUser = async (email, password) => {
+  logger.info({
+    message: chalk.blue('🔑 User login attempt:'),
+    email: chalk.cyan(email)
+  });
+
   const user = await User.findOne({ email });
   if (!user || !(await user.comparePassword(password))) {
     throw new Error('Invalid credentials');

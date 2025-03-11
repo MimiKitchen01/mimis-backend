@@ -5,6 +5,7 @@ import Product from '../models/product.model.js';
 import Order from '../models/order.model.js'; // Changed from named import to default import
 import { ApiError } from '../middleware/error.middleware.js';
 import logger from '../utils/logger.js';
+import chalk from 'chalk';
 
 // Cart Controllers
 export const getCart = async (req, res) => {
@@ -119,6 +120,7 @@ export const updateCartItem = async (req, res) => {
 // Order Controllers
 export const createOrder = async (req, res) => {
   try {
+    logger.info(chalk.blue('🛒 Creating new order for user:'), chalk.cyan(req.user.userId));
     const { addressId } = req.body;
     const cart = await Cart.findOne({ user: req.user.userId })
       .populate('items.product');
@@ -139,13 +141,14 @@ export const createOrder = async (req, res) => {
 
     res.status(201).json(order);
   } catch (error) {
-    logger.error('Error in createOrder:', error);
+    logger.error(chalk.red('Order creation failed:'), chalk.yellow(error.message));
     res.status(400).json({ message: error.message });
   }
 };
 
 export const getOrders = async (req, res) => {
   try {
+    logger.info(chalk.blue('📋 Fetching orders for user:'), chalk.cyan(req.user.userId));
     const { status } = req.query;
     const query = { user: req.user.userId };
     
@@ -159,7 +162,7 @@ export const getOrders = async (req, res) => {
 
     res.json(orders);
   } catch (error) {
-    logger.error('Error in getOrders:', error);
+    logger.error(chalk.red('Failed to fetch orders:'), chalk.yellow(error.message));
     res.status(500).json({ message: error.message });
   }
 };

@@ -78,42 +78,44 @@ export const updatePassword = async (req, res) => {
 };
 
 export const updateProfileImage = async (req, res) => {
+  logger.info(chalk.blue('🔍 Profile Image Update Request:'), {
+    headers: {
+      contentType: chalk.cyan(req.headers['content-type']),
+      contentLength: chalk.yellow(req.headers['content-length'])
+    },
+    file: req.file ? {
+      fieldname: chalk.cyan(req.file.fieldname),
+      originalname: chalk.yellow(req.file.originalname),
+      mimetype: chalk.magenta(req.file.mimetype),
+      size: chalk.gray(`${(req.file.size / 1024).toFixed(2)}KB`),
+      location: chalk.green(req.file.location)
+    } : chalk.red('No file received'),
+    body: req.body,
+    userId: chalk.cyan(req.user.userId)
+  });
+
   try {
-    const { file } = req;
-    
-    // Validate image
-    imageService.validateImage(file);
-
-    // Get user
-    const user = await User.findById(req.user.userId);
-    if (!user) {
-      throw new ApiError(404, 'User not found');
+    if (!req.file) {
+      throw new ApiError(400, 'No image file uploaded');
     }
 
-    // Store old image URL for cleanup
-    const oldImageUrl = user.imageUrl;
-
-    // Upload new image
-    const imageUrl = await imageService.uploadImage(file, user._id, 'profile');
-    
-    // Update user profile
-    user.imageUrl = imageUrl;
-    await user.save();
-
-    // Delete old image if exists
-    if (oldImageUrl) {
-      await imageService.deleteImage(oldImageUrl);
-    }
+    // Update user's profile image
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      { imageUrl: req.file.location },
+      { new: true }
+    ).select('-password');
 
     res.json({
       message: 'Profile image updated successfully',
-      imageUrl: user.imageUrl
+      imageUrl: req.file.location,
+      user
     });
   } catch (error) {
-    logger.error('Error in updateProfileImage:', {
-      error: error.message,
-      userId: req.user?.userId
+    logger.error(chalk.red('❌ Profile Image Update Error:'), error);
+    res.status(error.statusCode || 400).json({ 
+      message: error.message,
+      help: 'Make sure to send an image file using form-data with key "image"'
     });
-    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };

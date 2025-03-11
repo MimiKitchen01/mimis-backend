@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import swaggerJsdoc from 'swagger-jsdoc';
+import chalk from 'chalk';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,7 +42,7 @@ try {
     throw new Error('No paths found in Swagger specification');
   }
 
-  console.log('Swagger spec generated successfully');
+  console.log(chalk.green('✨ Swagger spec generated successfully'));
 
   const postmanCollection = {
     info: {
@@ -60,7 +61,9 @@ try {
   };
 
   // Debug log
-  console.log('Available paths:', Object.keys(swaggerSpec.paths));
+  console.log(chalk.cyan('📝 Available paths:'), 
+    Object.keys(swaggerSpec.paths).map(path => chalk.blue(path))
+  );
 
   // Convert paths to Postman format
   Object.keys(swaggerSpec.paths || {}).forEach(path => {
@@ -157,11 +160,13 @@ try {
     JSON.stringify(postmanCollection, null, 2)
   );
 
-  console.log(`Postman collection generated successfully at: ${outputPath}`);
+  console.log(chalk.green.bold('✅ Postman collection generated successfully at:'), 
+    chalk.underline(outputPath)
+  );
 } catch (error) {
-  console.error('Error generating Postman collection:', error);
+  console.error(chalk.red.bold('❌ Error generating Postman collection:'), error);
   if (error.stack) {
-    console.error('Stack trace:', error.stack);
+    console.error(chalk.red('Stack trace:'), error.stack);
   }
   process.exit(1);
 }

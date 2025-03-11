@@ -8,13 +8,17 @@ import {
   getResetOTPTemplate,
   getPasswordResetConfirmationTemplate 
 } from '../templates/emailTemplates.js';
+import jwt from 'jsonwebtoken';
+import chalk from 'chalk';
 
 export const register = async (req, res) => {
   try {
+    logger.info(chalk.blue('📝 New user registration:'), chalk.cyan(req.body.email));
     const { user, otpCode } = await authService.createUser(req.body);
     await emailService.sendOTPEmail(user.email, otpCode, user.fullName);
     res.status(201).json({ message: 'Registration successful. Please verify your email.' });
   } catch (error) {
+    logger.error(chalk.red('Registration failed:'), chalk.yellow(error.message));
     res.status(400).json({ message: error.message });
   }
 };
@@ -31,9 +35,11 @@ export const verifyOTP = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
+    logger.info(chalk.blue('🔑 Login attempt:'), chalk.cyan(req.body.email));
     const { token } = await authService.loginUser(req.body.email, req.body.password);
     res.json({ token });
   } catch (error) {
+    logger.error(chalk.red('Login failed:'), chalk.yellow(error.message));
     res.status(401).json({ message: error.message });
   }
 };
@@ -145,4 +151,34 @@ export const resetPassword = async (req, res) => {
     logger.error('Reset password error:', error);
     res.status(error.statusCode || 400).json({ message: error.message });
   }
+};
+
+export const googleAuthSuccess = async (req, res) => {
+  try {
+    const token = jwt.sign(
+      { userId: req.user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      message: 'Google authentication successful',
+      token,
+      user: {
+        id: req.user._id,
+        email: req.user.email,
+        fullName: req.user.fullName,
+        imageUrl: req.user.imageUrl
+      }
+    });
+  } catch (error) {
+    logger.error('Google auth success error:', error);
+    res.status(500).json({ message: 'Authentication failed' });
+  }
+};
+
+export const googleAuthFailure = (req, res) => {
+  res.status(401).json({
+    message: 'Google authentication failed'
+  });
 };

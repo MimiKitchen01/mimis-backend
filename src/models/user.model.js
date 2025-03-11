@@ -11,7 +11,10 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    required: function() {
+      // Password is required only if not using Google auth
+      return !this.google.id;
+    }
   },
   fullName: {
     type: String,
@@ -47,13 +50,18 @@ const userSchema = new mongoose.Schema({
   resetOTP: {
     code: String,
     expiresAt: Date
+  },
+  google: {
+    id: String,
+    accessToken: String,
+    refreshToken: String
   }
 }, {
   timestamps: true
 });
 
 userSchema.pre('save', async function(next) {
-  if (this.isModified('password')) {
+  if (this.isModified('password') && this.password) {
     this.password = await bcrypt.hash(this.password, 10);
   }
   next();
