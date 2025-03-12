@@ -26,8 +26,17 @@ const userSchema = new mongoose.Schema({
     default: false,
   },
   otp: {
-    code: String,
-    expiresAt: Date,
+    code: {
+      type: String,
+      validate: {
+        validator: function(v) {
+          // Validate 5-digit OTP format
+          return /^\d{5}$/.test(v);
+        },
+        message: props => `${props.value} is not a valid 5-digit OTP!`
+      }
+    },
+    expiresAt: Date
   },
   imageUrl: {
     type: String,
@@ -48,7 +57,16 @@ const userSchema = new mongoose.Schema({
     default: ROLES.USER
   },
   resetOTP: {
-    code: String,
+    code: {
+      type: String,
+      validate: {
+        validator: function(v) {
+          // Validate 5-digit OTP format
+          return /^\d{5}$/.test(v);
+        },
+        message: props => `${props.value} is not a valid 5-digit OTP!`
+      }
+    },
     expiresAt: Date
   },
   google: {

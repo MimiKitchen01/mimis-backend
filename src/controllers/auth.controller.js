@@ -62,8 +62,8 @@ export const forgotPassword = async (req, res) => {
       throw new ApiError(404, 'User not found with this email');
     }
 
-    // Generate 6-digit OTP
-    const resetOTP = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate 5-digit OTP (10000 to 99999)
+    const resetOTP = Math.floor(10000 + Math.random() * 90000).toString();
     const resetOTPExpiry = Date.now() + 600000; // 10 minutes
 
     // Save OTP to user
@@ -72,6 +72,8 @@ export const forgotPassword = async (req, res) => {
       expiresAt: resetOTPExpiry
     };
     await user.save();
+
+    logger.info(chalk.blue('📧 Generated OTP:'), chalk.cyan(resetOTP));
 
     // Send OTP email
     await emailService.sendEmail({
@@ -82,13 +84,11 @@ export const forgotPassword = async (req, res) => {
 
     res.json({ 
       message: 'Password reset OTP sent to email',
-      email: user.email
+      email: user.email,
+      expiresIn: '10 minutes'
     });
   } catch (error) {
-    logger.error('Forgot password error:', {
-      error: error.message,
-      stack: error.stack
-    });
+    logger.error(chalk.red('Forgot password error:'), chalk.yellow(error.message));
     res.status(error.statusCode || 500).json({ message: error.message });
   }
 };

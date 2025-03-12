@@ -4,7 +4,8 @@ import chalk from 'chalk';
 import logger from '../utils/logger.js';
 
 export const generateOTP = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // Generate 5-digit OTP (10000 to 99999)
+  return Math.floor(10000 + Math.random() * 90000).toString();
 };
 
 export const createUser = async (userData) => {
