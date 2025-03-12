@@ -4,6 +4,19 @@ import chalk from 'chalk';
 const { createLogger, format, transports } = winston;
 const { combine, timestamp, printf } = format;
 
+const getCircularReplacer = () => {
+  const seen = new WeakSet();
+  return (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) {
+        return '[Circular]';
+      }
+      seen.add(value);
+    }
+    return value;
+  };
+};
+
 // Enhanced console format with better object formatting
 const consoleFormat = printf(({ level, message, timestamp, ...meta }) => {
   const levelColors = {
@@ -19,10 +32,14 @@ const consoleFormat = printf(({ level, message, timestamp, ...meta }) => {
   // Better object formatting
   const formatObject = (obj) => {
     if (typeof obj === 'object' && obj !== null) {
-      return JSON.stringify(obj, null, 2)
-        .split('\n')
-        .map(line => chalk.cyan(line))
-        .join('\n');
+      try {
+        return JSON.stringify(obj, getCircularReplacer(), 2)
+          .split('\n')
+          .map(line => chalk.cyan(line))
+          .join('\n');
+      } catch (error) {
+        return chalk.red('[Unable to stringify object]');
+      }
     }
     return obj;
   };
