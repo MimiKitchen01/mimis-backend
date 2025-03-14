@@ -17,6 +17,7 @@ import { requestLogger } from './middleware/logging.middleware.js';
 import passport from 'passport';
 import './config/passport.config.js';
 import chatRoutes from './routes/chat.routes.js';
+import paymentRoutes from './routes/payment.routes.js';
 
 
 const app = express();
@@ -55,8 +56,10 @@ app.use('/api/products', productRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Error handling
+
 app.use(errorHandler);
 
 // 404 handler

@@ -2,7 +2,7 @@ import express from 'express';
 import * as adminController from '../controllers/admin.controller.js';
 import auth from '../middleware/auth.js';
 import { adminAuth } from '../middleware/admin.middleware.js';
-import { uploadSingleImage } from '../middleware/upload.middleware.js';
+import { handleProfileImageUpload } from '../middleware/upload.middleware.js';
 
 /**
  * @swagger
@@ -525,11 +525,29 @@ router.patch('/profile', auth, adminAuth, adminController.updateAdminProfile);
  *                 imageUrl:
  *                   type: string
  */
-router.post('/profile-image', 
-  auth, 
+router.post('/profile-image',
+  auth,
   adminAuth,
-  uploadSingleImage, 
+  handleProfileImageUpload,
   adminController.updateAdminProfileImage
+);
+
+// Add this new test endpoint
+router.post('/test-upload',
+  auth,
+  adminAuth,
+  handleProfileImageUpload,
+  (req, res) => {
+    res.json({
+      message: 'Test upload successful',
+      file: {
+        location: req.file.location,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        key: req.file.key
+      }
+    });
+  }
 );
 
 export default router;

@@ -4,9 +4,9 @@ import User from '../models/user.model.js';
 import { ApiError } from '../middleware/error.middleware.js';
 import logger from '../utils/logger.js';
 import { randomBytes } from 'crypto';
-import { 
+import {
   getResetOTPTemplate,
-  getPasswordResetConfirmationTemplate 
+  getPasswordResetConfirmationTemplate
 } from '../templates/emailTemplates.js';
 import jwt from 'jsonwebtoken';
 import chalk from 'chalk';
@@ -82,7 +82,7 @@ export const forgotPassword = async (req, res) => {
       html: getResetOTPTemplate(user.fullName, resetOTP)
     });
 
-    res.json({ 
+    res.json({
       message: 'Password reset OTP sent to email',
       email: user.email,
       expiresIn: '10 minutes'
@@ -107,7 +107,7 @@ export const verifyResetOTP = async (req, res) => {
       throw new ApiError(400, 'Invalid or expired OTP');
     }
 
-    res.json({ 
+    res.json({
       message: 'OTP verified successfully',
       email: user.email
     });

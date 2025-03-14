@@ -1,6 +1,8 @@
 import Cart from '../models/cart.model.js';
 import Product from '../models/product.model.js';
 import { ApiError } from '../middleware/error.middleware.js';
+import logger from '../utils/logger.js';
+import chalk from 'chalk';
 
 export const getOrCreateCart = async (userId) => {
   let cart = await Cart.findOne({ user: userId }).populate('items.product');
@@ -11,18 +13,40 @@ export const getOrCreateCart = async (userId) => {
   return cart;
 };
 
-export const addToCart = async (userId, productId, quantity) => {
+export const validateCartItem = async (productId, quantity) => {
   const product = await Product.findById(productId);
-  if (!product || !product.isActive) {
+
+  if (!product) {
     throw new ApiError(404, 'Product not found');
   }
 
+  if (!product.isAvailable) {
+    throw new ApiError(400, 'Product is not available');
+  }
+
+  if (quantity < 1) {
+    throw new ApiError(400, 'Quantity must be at least 1');
+  }
+
+  return product;
+};
+
+export const addToCart = async (userId, productId, quantity) => {
+  logger.info(chalk.blue('🛒 Adding to cart:'), {
+    userId: chalk.cyan(userId),
+    productId: chalk.yellow(productId),
+    quantity: chalk.green(quantity)
+  });
+
+  const product = await validateCartItem(productId, quantity);
   const cart = await getOrCreateCart(userId);
-  const existingItem = cart.items.find(item => item.product.equals(productId));
+
+  const existingItem = cart.items.find(item =>
+    item.product.toString() === productId
+  );
 
   if (existingItem) {
     existingItem.quantity += quantity;
-    existingItem.price = product.price;
   } else {
     cart.items.push({
       product: productId,

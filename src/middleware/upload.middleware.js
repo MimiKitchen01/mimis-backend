@@ -1,4 +1,5 @@
 import multer from 'multer';
+import { S3Client } from '@aws-sdk/client-s3';
 import multerS3 from 'multer-s3';
 import path from 'path';
 import { ApiError } from './error.middleware.js';
@@ -22,7 +23,7 @@ const fileFilter = (req, file, cb) => {
 };
 
 // Create base multer S3 configuration
-const createS3Storage = (folderPath) => 
+const createS3Storage = (folderPath) =>
   multerS3({
     s3: s3Client,
     bucket: process.env.AWS_BUCKET_NAME,
@@ -37,12 +38,12 @@ const createS3Storage = (folderPath) =>
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
       const ext = path.extname(file.originalname) || '.jpg';
       const key = `${folderPath}/${req.user.userId}/${uniqueSuffix}${ext}`;
-      
+
       logger.info('Generated S3 key:', { key });
       cb(null, key);
     },
     metadata: (req, file, cb) => {
-      cb(null, { 
+      cb(null, {
         fieldName: file.fieldname,
         userId: req.user.userId,
         originalName: file.originalname
@@ -50,105 +51,86 @@ const createS3Storage = (folderPath) =>
     }
   });
 
-// Profile image upload middleware
-export const uploadSingleImage = (req, res, next) => {
-  logger.info(chalk.cyan('📤 Starting image upload...'));
-
-  // Initial request logging
-  logger.info(chalk.blue('🔍 Request Details:'), {
-    contentType: chalk.cyan(req.headers['content-type']),
-    contentLength: chalk.yellow(req.headers['content-length']),
-    boundary: chalk.magenta(req.headers['content-type']?.split('boundary=')[1])
-  });
-
-  const upload = multer({
-    storage: createS3Storage('profiles'),
-    limits: { 
-      fileSize: 10 * 1024 * 1024, // 10MB
-      fieldSize: 50 * 1024 * 1024 // 50MB field size limit
+// Create the multer upload instance
+const uploadSingleImage = multer({
+  storage: multerS3({
+    s3: s3Client,
+    bucket: process.env.AWS_BUCKET_NAME,
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    metadata: (req, file, cb) => {
+      cb(null, {
+        fieldName: file.fieldname,
+        userId: req.user.userId
+      });
     },
-    fileFilter: (req, file, cb) => {
-      logger.info(chalk.blue('📝 Processing File:'), {
+    key: (req, file, cb) => {
+      try {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname).toLowerCase();
+        const key = `profile-images/${req.user.userId}/${uniqueSuffix}${ext}`;
+        
+        logger.info(chalk.blue('🔑 Generated S3 key:'), chalk.cyan(key));
+        cb(null, key);
+      } catch (error) {
+        logger.error('Error generating key:', error);
+        cb(new Error('Error generating file key'));
+      }
+    }
+  }),
+  limits: {
+    fileSize: 2 * 1024 * 1024 // 2MB
+  },
+  fileFilter: (req, file, cb) => {
+    try {
+      logger.info(chalk.blue('🔍 Validating file:'), {
         fieldname: chalk.cyan(file.fieldname),
         originalname: chalk.yellow(file.originalname),
-        mimetype: chalk.magenta(file.mimetype),
-        encoding: chalk.gray(file.encoding)
+        mimetype: chalk.magenta(file.mimetype)
       });
 
-      // Validate file type
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-      if (!allowedTypes.includes(file.mimetype)) {
+      const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedMimes.includes(file.mimetype)) {
         return cb(new Error('Only JPEG, PNG and WEBP files are allowed'));
       }
 
-      // Validate fieldname
-      if (file.fieldname !== 'image') {
-        return cb(new Error('Form field must be named "image"'));
-      }
-
       cb(null, true);
+    } catch (error) {
+      logger.error('File filter error:', error);
+      cb(error);
     }
-  }).single('image');
+  }
+}).single('image');
 
-  // Add raw body parsing
-  const rawBody = [];
-  req.on('data', (chunk) => {
-    rawBody.push(chunk);
-  });
-
-  req.on('end', () => {
-    req.rawBody = Buffer.concat(rawBody).toString();
-  });
-
-  upload(req, res, (err) => {
-    logger.info('Upload attempt:', {
-      headers: req.headers,
-      file: req.file,
-      error: err?.message
-    });
-
-    logger.info(chalk.blue('📤 Upload Result:'), {
-      hasFile: !!req.file,
-      fileDetails: req.file ? {
-        originalname: req.file.originalname,
-        size: `${(req.file.size / 1024).toFixed(2)}KB`,
-        mimetype: req.file.mimetype,
-        fieldname: req.file.fieldname
-      } : null,
-      error: err?.message
-    });
-
-    if (err instanceof multer.MulterError) {
-      logger.error('Multer error:', err);
-      return res.status(400).json({
-        message: 'File upload error',
-        details: err.message,
-        code: 'MULTER_ERROR',
-        help: 'Make sure you are uploading a file less than 2MB'
-      });
-    }
-
+// Export the middleware function
+export const handleProfileImageUpload = (req, res, next) => {
+  uploadSingleImage(req, res, (err) => {
     if (err) {
-      logger.error(chalk.red('❌ Upload error:'), err);
-      return res.status(500).json({
-        message: 'Error uploading file',
-        code: 'UPLOAD_ERROR'
-      });
-    }
-
-    if (!req.file) {
-      logger.error(chalk.yellow('⚠️ No file uploaded'));
+      logger.error('Upload error:', err);
+      
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({
+            message: 'File size too large. Maximum size is 2MB',
+            code: 'FILE_TOO_LARGE'
+          });
+        }
+        return res.status(400).json({
+          message: `Upload error: ${err.message}`,
+          code: err.code
+        });
+      }
+      
       return res.status(400).json({
-        message: 'No file uploaded',
-        code: 'NO_FILE',
-        help: 'In Postman: Use form-data, key name should be "image", and select a file using the "Select Files" button'
+        message: err.message || 'Error uploading file',
+        code: 'UPLOAD_ERROR',
+        help: 'Make sure to use form-data with key "image" and select a valid image file'
       });
     }
 
-    logger.info(chalk.green('✅ File uploaded successfully:'), {
-      filename: chalk.blue(req.file.originalname),
-      size: chalk.yellow(`${(req.file.size / 1024).toFixed(2)}KB`),
-      type: chalk.cyan(req.file.mimetype)
+    // Log the received file
+    logger.info('File received:', {
+      file: req.file,
+      body: req.body
     });
 
     next();
@@ -158,8 +140,25 @@ export const uploadSingleImage = (req, res, next) => {
 // Product images upload middleware
 export const uploadProductImages = (req, res, next) => {
   const upload = multer({
-    storage: createS3Storage('products'),
-    limits: { 
+    storage: multerS3({
+      s3: s3Client,
+      bucket: process.env.AWS_BUCKET_NAME,
+      contentType: multerS3.AUTO_CONTENT_TYPE,
+      metadata: (req, file, cb) => {
+        cb(null, {
+          fieldName: file.fieldname,
+          userId: req.user.userId
+        });
+      },
+      key: (req, file, cb) => {
+        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+        const ext = path.extname(file.originalname);
+        const filename = `${uniqueSuffix}${ext}`;
+        const key = `products/${req.user.userId}/${filename}`;
+        cb(null, key);
+      }
+    }),
+    limits: {
       fileSize: 5 * 1024 * 1024,
       files: 8
     },

@@ -48,10 +48,77 @@ const orderSchema = new mongoose.Schema({
   paymentDetails: {
     method: String,
     transactionId: String,
+    paidAt: Date,
+    amount: Number,
+    currency: {
+      type: String,
+      default: 'USD'
+    }
+  },
+  orderNumber: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  statusHistory: [{
+    status: {
+      type: String,
+      enum: Object.values(ORDER_STATUS)
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  estimatedDeliveryTime: {
+    type: Date
+  },
+  actualDeliveryTime: {
+    type: Date
+  },
+  cancellationReason: {
+    type: String,
+    enum: [
+      'CUSTOMER_REQUEST',
+      'PAYMENT_FAILED',
+      'OUT_OF_STOCK',
+      'RESTAURANT_CLOSED',
+      'OTHER'
+    ]
+  },
+  notes: String,
+  payment: {
+    paymentIntentId: String,
+    paymentMethod: String,
+    paymentStatus: {
+      type: String,
+      enum: ['pending', 'processing', 'completed', 'failed', 'refunded'],
+      default: 'pending'
+    },
+    amount: Number,
+    currency: {
+      type: String,
+      default: 'usd'
+    },
     paidAt: Date
   }
 }, {
   timestamps: true
+});
+
+// Add pre-save hook for status history
+orderSchema.pre('save', function (next) {
+  if (this.isModified('status')) {
+    this.statusHistory.push({
+      status: this.status,
+      timestamp: new Date()
+    });
+  }
+  next();
 });
 
 export default mongoose.model('Order', orderSchema);

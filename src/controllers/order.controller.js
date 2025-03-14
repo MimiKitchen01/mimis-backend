@@ -22,7 +22,7 @@ export const getCart = async (req, res) => {
 export const addToCart = async (req, res) => {
   try {
     const { productId, quantity } = req.body;
-    
+
     // Find the product to get its price
     const product = await Product.findById(productId);
     if (!product) {
@@ -36,7 +36,7 @@ export const addToCart = async (req, res) => {
 
     // Find or create cart
     let cart = await Cart.findOne({ user: req.user.userId });
-    
+
     if (!cart) {
       cart = new Cart({
         user: req.user.userId,
@@ -77,9 +77,9 @@ export const addToCart = async (req, res) => {
     });
   } catch (error) {
     logger.error('Error in addToCart:', error);
-    res.status(error.statusCode || 400).json({ 
+    res.status(error.statusCode || 400).json({
       message: error.message,
-      errors: error.errors 
+      errors: error.errors
     });
   }
 };
@@ -93,7 +93,7 @@ export const updateCartItem = async (req, res) => {
       throw new ApiError(404, 'Cart not found');
     }
 
-    const itemIndex = cart.items.findIndex(item => 
+    const itemIndex = cart.items.findIndex(item =>
       item.product.toString() === productId
     );
 
@@ -109,7 +109,7 @@ export const updateCartItem = async (req, res) => {
 
     await cart.save();
     await cart.populate('items.product');
-    
+
     res.json(cart);
   } catch (error) {
     logger.error('Error in updateCartItem:', error);
@@ -120,28 +120,23 @@ export const updateCartItem = async (req, res) => {
 // Order Controllers
 export const createOrder = async (req, res) => {
   try {
-    logger.info(chalk.blue('🛒 Creating new order for user:'), chalk.cyan(req.user.userId));
-    const { addressId } = req.body;
-    const cart = await Cart.findOne({ user: req.user.userId })
-      .populate('items.product');
+    logger.info(chalk.blue('🛒 Creating new order for user:'),
+      chalk.cyan(req.user.userId)
+    );
 
-    if (!cart || cart.items.length === 0) {
-      throw new ApiError(400, 'Cart is empty');
-    }
+    const { addressId } = req.body; // Now optional
+    const order = await orderService.createOrder(req.user.userId, addressId);
 
-    const order = new Order({
-      user: req.user.userId,
-      items: cart.items,
-      total: cart.total,
-      deliveryAddress: addressId
-    });
-
-    await order.save();
-    await cart.delete();
+    // Log which address was used
+    logger.info(chalk.green('✅ Order created with address:'),
+      chalk.yellow(addressId || 'default')
+    );
 
     res.status(201).json(order);
   } catch (error) {
-    logger.error(chalk.red('Order creation failed:'), chalk.yellow(error.message));
+    logger.error(chalk.red('Order creation failed:'),
+      chalk.yellow(error.message)
+    );
     res.status(400).json({ message: error.message });
   }
 };
@@ -151,7 +146,7 @@ export const getOrders = async (req, res) => {
     logger.info(chalk.blue('📋 Fetching orders for user:'), chalk.cyan(req.user.userId));
     const { status } = req.query;
     const query = { user: req.user.userId };
-    
+
     if (status) {
       query.status = status;
     }
