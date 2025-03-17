@@ -51,62 +51,63 @@ const createS3Storage = (folderPath) =>
     }
   });
 
-// Create the multer upload instance
-const uploadSingleImage = multer({
-  storage: multerS3({
-    s3: s3Client,
-    bucket: process.env.AWS_BUCKET_NAME,
-    contentType: multerS3.AUTO_CONTENT_TYPE,
-    metadata: (req, file, cb) => {
-      cb(null, {
-        fieldName: file.fieldname,
-        userId: req.user.userId
-      });
-    },
-    key: (req, file, cb) => {
-      try {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(file.originalname).toLowerCase();
-        const key = `profile-images/${req.user.userId}/${uniqueSuffix}${ext}`;
-        
+// Profile image upload middleware
+export const uploadSingleImage = (req, res, next) => {
+  logger.info(chalk.blue('📤 Starting image upload...'));
+
+  // Create multer instance with explicit configurations
+  const upload = multer({
+    storage: multerS3({
+      s3: s3Client,
+      bucket: process.env.AWS_BUCKET_NAME,
+      contentType: multerS3.AUTO_CONTENT_TYPE,
+      metadata: (req, file, cb) => {
+        cb(null, {
+          fieldName: file.fieldname,
+          userId: req.user.userId
+        });
+      },
+      key: (req, file, cb) => {
+        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+        const ext = path.extname(file.originalname);
+        const filename = `${uniqueSuffix}${ext}`;
+        const key = `profile-images/${req.user.userId}/${filename}`;
+
         logger.info(chalk.blue('🔑 Generated S3 key:'), chalk.cyan(key));
         cb(null, key);
-      } catch (error) {
-        logger.error('Error generating key:', error);
-        cb(new Error('Error generating file key'));
       }
-    }
-  }),
-  limits: {
-    fileSize: 2 * 1024 * 1024 // 2MB
-  },
-  fileFilter: (req, file, cb) => {
-    try {
+    }),
+    limits: {
+      fileSize: 2 * 1024 * 1024 // 2MB
+    },
+    fileFilter: (req, file, cb) => {
+      // Log the incoming file details
       logger.info(chalk.blue('🔍 Validating file:'), {
         fieldname: chalk.cyan(file.fieldname),
         originalname: chalk.yellow(file.originalname),
         mimetype: chalk.magenta(file.mimetype)
       });
 
-      const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
-      if (!allowedMimes.includes(file.mimetype)) {
-        return cb(new Error('Only JPEG, PNG and WEBP files are allowed'));
+      // Validate file type
+      if (!file.mimetype.match(/^image\/(jpeg|png|webp)$/)) {
+        return cb(new ApiError(400, 'Only JPEG, PNG and WEBP files are allowed'));
       }
-
       cb(null, true);
-    } catch (error) {
-      logger.error('File filter error:', error);
-      cb(error);
     }
-  }
-}).single('image');
+  }).single('image');
 
-// Export the middleware function
-export const handleProfileImageUpload = (req, res, next) => {
-  uploadSingleImage(req, res, (err) => {
+  // Handle the upload with detailed logging
+  upload(req, res, (err) => {
+    // Log the entire request for debugging
+    logger.info(chalk.blue('📝 Upload request details:'), {
+      headers: req.headers,
+      body: req.body,
+      file: req.file
+    });
+
     if (err) {
-      logger.error('Upload error:', err);
-      
+      logger.error(chalk.red('❌ Upload error:'), err);
+
       if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
           return res.status(400).json({
@@ -119,18 +120,49 @@ export const handleProfileImageUpload = (req, res, next) => {
           code: err.code
         });
       }
-      
+
       return res.status(400).json({
-        message: err.message || 'Error uploading file',
-        code: 'UPLOAD_ERROR',
-        help: 'Make sure to use form-data with key "image" and select a valid image file'
+        message: err.message,
+        code: 'UPLOAD_ERROR'
       });
     }
 
-    // Log the received file
-    logger.info('File received:', {
-      file: req.file,
-      body: req.body
+    if (!req.file) {
+      logger.error(chalk.red('❌ No file in request'), {
+        contentType: req.headers['content-type'],
+        body: req.body
+      });
+
+      return res.status(400).json({
+        message: 'No file uploaded',
+        code: 'NO_FILE',
+        help: `Troubleshooting steps:
+1. Use form-data in Postman
+2. Set key name exactly to "image"
+3. Click "Select Files" button
+4. Select an image file (JPEG, PNG, or WEBP)
+5. Don't set Content-Type manually
+6. Check file size (max 2MB)
+7. Verify request headers:
+   Current Content-Type: ${req.headers['content-type']}`,
+        example: {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer your-token',
+          },
+          body: {
+            type: 'form-data',
+            key: 'image',
+            value: '[Select File]'
+          }
+        }
+      });
+    }
+
+    logger.info(chalk.green('✅ File uploaded successfully:'), {
+      location: chalk.cyan(req.file.location),
+      size: chalk.yellow(`${(req.file.size / 1024).toFixed(2)}KB`),
+      mimetype: chalk.magenta(req.file.mimetype)
     });
 
     next();

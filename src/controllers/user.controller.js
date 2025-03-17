@@ -1,8 +1,8 @@
 import User from '../models/user.model.js';
 import { ApiError } from '../middleware/error.middleware.js';
 import logger from '../utils/logger.js';
-import chalk from 'chalk';
 import * as imageService from '../services/image.service.js';
+import chalk from 'chalk';
 
 export const updateProfile = async (req, res) => {
   try {
@@ -16,6 +16,7 @@ export const updateProfile = async (req, res) => {
       'dateOfBirth',
       'imageUrl'
     ];
+
 
     const updates = Object.keys(req.body);
     const isValidOperation = updates.every(update =>
@@ -91,43 +92,33 @@ export const updatePassword = async (req, res) => {
 };
 
 export const updateProfileImage = async (req, res) => {
+  logger.info(chalk.blue('🔍 Profile Image Update Request:'), {
+    headers: {
+      contentType: chalk.cyan(req.headers['content-type']),
+      contentLength: chalk.yellow(req.headers['content-length'])
+    },
+    file: req.file ? {
+      fieldname: chalk.cyan(req.file.fieldname),
+      originalname: chalk.yellow(req.file.originalname),
+      mimetype: chalk.magenta(req.file.mimetype),
+      size: chalk.gray(`${(req.file.size / 1024).toFixed(2)}KB`),
+      location: chalk.green(req.file.location)
+    } : chalk.red('No file received'),
+    body: req.body,
+    userId: chalk.cyan(req.user.userId)
+  });
+
   try {
-    // Log the incoming request
-    logger.info('Update profile image request:', {
-      file: req.file,
-      userId: req.user.userId
-    });
-
-    // Validate file exists
     if (!req.file) {
-      throw new ApiError(400, 'Please upload an image file');
+      throw new ApiError(400, 'No image file uploaded');
     }
-
-    // Validate file has location
-    if (!req.file.location) {
-      throw new ApiError(500, 'File upload failed - no URL received');
-    }
-
-    logger.info(chalk.blue('📝 Profile image update:'), {
-      userId: chalk.cyan(req.user.userId),
-      file: {
-        originalname: req.file.originalname,
-        size: `${(req.file.size / 1024).toFixed(2)}KB`,
-        mimetype: req.file.mimetype,
-        location: req.file.location
-      }
-    });
 
     // Update user's profile image
     const user = await User.findByIdAndUpdate(
       req.user.userId,
       { imageUrl: req.file.location },
       { new: true }
-    ).select('-password -otp');
-
-    if (!user) {
-      throw new ApiError(404, 'User not found');
-    }
+    ).select('-password');
 
     res.json({
       message: 'Profile image updated successfully',
@@ -135,21 +126,10 @@ export const updateProfileImage = async (req, res) => {
       user
     });
   } catch (error) {
-    logger.error(chalk.red('❌ Profile image update error:'), error);
+    logger.error(chalk.red('❌ Profile Image Update Error:'), error);
     res.status(error.statusCode || 400).json({
       message: error.message,
-      help: 'Make sure to upload an image file using form-data with key "image"',
-      example: {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer your-token'
-        },
-        body: {
-          type: 'form-data',
-          key: 'image',
-          value: '[Select an image file]'
-        }
-      }
+      help: 'Make sure to send an image file using form-data with key "image"'
     });
   }
 };

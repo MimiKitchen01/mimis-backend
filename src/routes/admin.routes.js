@@ -2,7 +2,7 @@ import express from 'express';
 import * as adminController from '../controllers/admin.controller.js';
 import auth from '../middleware/auth.js';
 import { adminAuth } from '../middleware/admin.middleware.js';
-import { handleProfileImageUpload } from '../middleware/upload.middleware.js';
+import { uploadSingleImage } from '../middleware/upload.middleware.js';
 
 /**
  * @swagger
@@ -528,7 +528,7 @@ router.patch('/profile', auth, adminAuth, adminController.updateAdminProfile);
 router.post('/profile-image',
   auth,
   adminAuth,
-  handleProfileImageUpload,
+  uploadSingleImage,
   adminController.updateAdminProfileImage
 );
 
@@ -536,7 +536,7 @@ router.post('/profile-image',
 router.post('/test-upload',
   auth,
   adminAuth,
-  handleProfileImageUpload,
+  uploadSingleImage,
   (req, res) => {
     res.json({
       message: 'Test upload successful',

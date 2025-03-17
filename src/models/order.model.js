@@ -90,22 +90,7 @@ const orderSchema = new mongoose.Schema({
       'OTHER'
     ]
   },
-  notes: String,
-  payment: {
-    paymentIntentId: String,
-    paymentMethod: String,
-    paymentStatus: {
-      type: String,
-      enum: ['pending', 'processing', 'completed', 'failed', 'refunded'],
-      default: 'pending'
-    },
-    amount: Number,
-    currency: {
-      type: String,
-      default: 'usd'
-    },
-    paidAt: Date
-  }
+  notes: String
 }, {
   timestamps: true
 });

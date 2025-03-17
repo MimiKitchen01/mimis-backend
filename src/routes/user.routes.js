@@ -1,7 +1,7 @@
 import express from 'express';
 import * as userController from '../controllers/user.controller.js';
 import auth from '../middleware/auth.js';
-import { handleProfileImageUpload } from '../middleware/upload.middleware.js';
+import { uploadSingleImage } from '../middleware/upload.middleware.js'; // Changed from uploadToS3
 import logger from '../utils/logger.js';
 
 /**
@@ -51,10 +51,18 @@ const router = express.Router();
  *       413:
  *         description: File too large
  */
-router.post('/profile-image', 
+router.post(
+  '/profile-image',
   auth,
-  handleProfileImageUpload,
-  userController.updateProfileImage
+  uploadSingleImage,  // Changed from uploadToS3.single('image')
+  (req, res, next) => {
+    logger.info({
+      message: 'Processing profile image upload',
+      hasFile: !!req.file,
+      userId: req.user.userId
+    });
+    userController.updateProfileImage(req, res, next);
+  }
 );
 
 /**
