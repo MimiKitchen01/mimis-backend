@@ -22,6 +22,7 @@ export const PAYMENT_STATUS = {
 export const PRODUCT_CATEGORIES = [
   'Appetizers',
   'Main Course',
+  'Rice',
   'Burgers',
   'Pizza',
   'Pasta',

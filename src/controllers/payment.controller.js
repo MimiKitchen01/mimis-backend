@@ -6,12 +6,17 @@ import chalk from 'chalk';
 
 export const createPaymentSession = async (req, res) => {
   try {
+    logger.info(chalk.blue('💰 Creating payment session:'),
+      chalk.cyan(JSON.stringify(req.body))
+    );
+
     const { orderId } = req.body;
 
+    // Find order and ensure it belongs to the requesting user
     const order = await Order.findOne({
       _id: orderId,
       user: req.user.userId
-    });
+    }).populate('items.product');
 
     if (!order) {
       throw new ApiError(404, 'Order not found');
@@ -21,30 +26,48 @@ export const createPaymentSession = async (req, res) => {
       throw new ApiError(400, 'Order is already paid');
     }
 
+    // Ensure order has an order number
+    if (!order.orderNumber) {
+      order.orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}`;
+      await order.save();
+    }
+
+    // Create payment intent
     const paymentIntent = await paymentService.createPaymentIntent(order);
 
-    // Update order with payment intent ID
+    // Update order with payment intent details
     order.payment = {
       paymentIntentId: paymentIntent.id,
       amount: order.total,
-      paymentStatus: 'pending'
+      paymentStatus: 'pending',
+      currency: 'usd'
     };
     await order.save();
+
+    logger.info(chalk.green('✅ Payment session created:'), {
+      orderId: chalk.cyan(order._id),
+      orderNumber: chalk.yellow(order.orderNumber),
+      amount: chalk.green(`$${order.total.toFixed(2)}`)
+    });
 
     res.json({
       clientSecret: paymentIntent.client_secret,
       orderId: order._id,
+      orderNumber: order.orderNumber,
       amount: order.total
     });
   } catch (error) {
     logger.error(chalk.red('Payment session creation failed:'), error);
-    res.status(error.statusCode || 500).json({ message: error.message });
+    res.status(error.statusCode || 500).json({
+      message: error.message,
+      details: error.errors
+    });
   }
 };
 
 export const handlePaymentWebhook = async (req, res) => {
   const sig = req.headers['stripe-signature'];
-  
+
   try {
     const event = stripe.webhooks.constructEvent(
       req.body,
@@ -90,4 +113,4 @@ const handleFailedPayment = async (paymentIntent) => {
     order.payment.paymentStatus = 'failed';
     await order.save();
   }
-}; 
+};

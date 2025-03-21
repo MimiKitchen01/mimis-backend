@@ -50,3 +50,4 @@ debug/
 
 # Optional eslint cache
 .eslintcache
+.qodo
