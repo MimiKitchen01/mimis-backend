@@ -1,116 +1,179 @@
-import streamClient from '../config/stream.config.js';
+import { StreamChat } from 'stream-chat';
 import logger from '../utils/logger.js';
 import chalk from 'chalk';
 
-export const createUserToken = async (userId) => {
+const streamClient = StreamChat.getInstance(
+  process.env.STREAM_API_KEY,
+  process.env.STREAM_API_SECRET
+);
+
+const createSupportAdmin = async () => {
   try {
-    if (!userId) {
-      throw new Error('User ID is required');
-    }
-    
-    logger.info(chalk.blue('🔑 Creating chat token for user:'), chalk.cyan(userId));
-    const token = streamClient.createToken(userId);
-    
-    if (!token) {
-      throw new Error('Failed to generate chat token');
-    }
-    
-    return token;
-  } catch (error) {
-    logger.error(chalk.red('Error creating chat token:'), {
-      error: error.message,
-      userId
+    // Create support admin user if not exists
+    await streamClient.upsertUser({
+      id: 'support_admin',
+      role: 'admin',
+      name: 'Customer Support',
+      image: 'https://ui-avatars.com/api/?name=Customer+Support'
     });
-    throw new Error(`Chat token creation failed: ${error.message}`);
+
+    logger.info(chalk.green('✅ Support admin user created/updated'));
+  } catch (error) {
+    logger.error(chalk.red('❌ Failed to create support admin:'), error);
+    throw error;
   }
 };
 
-export const initializeCustomerSupport = async (userId, userName) => {
+export const initializeCustomerChat = async (userId, userName) => {
   try {
-    if (!userId || !userName) {
-      throw new Error('User ID and name are required');
-    }
-
-    logger.info(chalk.blue('👤 Creating Stream Chat user:'), {
+    logger.info(chalk.blue('🎯 Initializing customer chat:'), {
       userId: chalk.cyan(userId),
-      userName: chalk.yellow(userName)
+      userName: chalk.yellow(userName || 'Anonymous')
     });
 
-    // Create user with more details
-    const userResponse = await streamClient.upsertUser({
+    // Create user token
+    const token = streamClient.createToken(userId);
+
+    // Ensure support admin exists
+    await createSupportAdmin();
+
+    // Create or update Stream user
+    const user = {
       id: userId,
       role: 'user',
-      name: userName,
-      image: `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}`,
-      created_at: new Date().toISOString()
-    });
+      name: userName || 'Anonymous User',
+      image: `https://ui-avatars.com/api/?name=${encodeURIComponent(userName || 'User')}`
+    };
 
-    logger.info(chalk.green('✅ User created:'), chalk.cyan(userId));
+    await streamClient.upsertUser(user);
 
     // Create unique channel ID
     const channelId = `support_${userId}_${Date.now()}`;
-    
-    logger.info(chalk.blue('📝 Creating support channel:'), chalk.cyan(channelId));
 
-    // Create channel with more configuration
+    // Create support channel
     const channel = streamClient.channel('messaging', channelId, {
-      created_by_id: userId,
-      name: `Support for ${userName}`,
-      members: [userId],
-      type: 'messaging',
-      created_at: new Date().toISOString(),
+      name: `Support for ${userName || 'Anonymous User'}`,
+      members: [userId, 'support_admin'],
+      created_by: { id: 'support_admin' },
       custom: {
         support_channel: true,
         customer_id: userId
       }
     });
 
-    const channelResponse = await channel.create();
+    // Create channel and get response
+    const response = await channel.create();
 
-    logger.info(chalk.green('✅ Channel created successfully:'), {
+    // Send initial message from support
+    await channel.sendMessage({
+      text: 'Hello! How can we help you today?',
+      user_id: 'support_admin'
+    });
+
+    logger.info(chalk.green('✅ Chat initialized:'), {
       channelId: chalk.cyan(channelId),
-      members: chalk.yellow(channelResponse.channel.members.length)
+      user: chalk.yellow(userName || 'Anonymous')
     });
 
     return {
-      channelId: channelResponse.channel.id,
-      channelType: channelResponse.channel.type,
-      channelData: {
-        name: channelResponse.channel.name,
-        created_at: channelResponse.channel.created_at
-      }
+      token,
+      channelId,
+      apiKey: process.env.STREAM_API_KEY,
+      userData: user,
+      channelData: response.channel
     };
   } catch (error) {
-    logger.error(chalk.red('❌ Support chat initialization failed:'), {
+    logger.error(chalk.red('❌ Chat initialization failed:'), {
       error: error.message,
       userId,
       userName,
       stack: error.stack
     });
-    throw new Error(`Support chat initialization failed: ${error.message}`);
+    throw error;
   }
 };
 
-export const getCustomerSupportHistory = async (userId) => {
+export const getSupportChannels = async (userId, status = 'open') => {
   try {
     const filter = { type: 'messaging', members: { $in: [userId] } };
-    const sort = [{ field: 'created_at', direction: -1 }];
-    
+    const sort = [{ field: 'last_message_at', direction: -1 }];
+
     const channels = await streamClient.queryChannels(filter, sort, {
       limit: 10,
-      offset: 0
+      state: true
     });
 
-    // Return only necessary channel data
     return channels.map(channel => ({
       id: channel.id,
-      type: channel.type,
       name: channel.data.name,
-      created_at: channel.data.created_at,
-      last_message_at: channel.data.last_message_at
+      lastMessage: channel.state.messages[channel.state.messages.length - 1],
+      createdAt: channel.data.created_at,
+      memberCount: channel.data.member_count
     }));
   } catch (error) {
-    logger.error(chalk.red('Error fetching support history:'), error.message);
-    throw new Error('Failed to fetch chat history');
+    logger.error(chalk.red('❌ Error fetching support channels:'), error);
+    throw error;
+  }
+};
+
+export const initializeAdminChat = async (adminId, adminName) => {
+  try {
+    logger.info(chalk.blue('👨‍💼 Initializing admin chat:'), {
+      adminId: chalk.cyan(adminId)
+    });
+
+    const token = streamClient.createToken(adminId);
+
+    // Create or update admin user
+    await streamClient.upsertUser({
+      id: adminId,
+      role: 'admin',
+      name: adminName,
+      image: `https://ui-avatars.com/api/?name=${encodeURIComponent(adminName)}&background=FF5722`
+    });
+
+    // Get all support channels
+    const filter = { type: 'messaging', member_count: 2 };
+    const sort = [{ field: 'created_at', direction: -1 }];
+    const channels = await streamClient.queryChannels(filter, sort);
+
+    logger.info(chalk.green('✅ Admin chat initialized:'), {
+      adminId: chalk.cyan(adminId),
+      activeChannels: chalk.yellow(channels.length)
+    });
+
+    return {
+      token,
+      apiKey: process.env.STREAM_API_KEY,
+      channels: channels.map(channel => ({
+        id: channel.id,
+        name: channel.data.name,
+        customerName: channel.data.name.replace('Support for ', ''),
+        lastMessage: channel.state.messages[channel.state.messages.length - 1],
+        createdAt: channel.data.created_at
+      }))
+    };
+  } catch (error) {
+    logger.error(chalk.red('❌ Admin chat initialization failed:'), error);
+    throw error;
+  }
+};
+
+export const sendAdminMessage = async (adminId, channelId, message) => {
+  try {
+    const channel = streamClient.channel('messaging', channelId);
+    await channel.sendMessage({
+      text: message,
+      user_id: adminId
+    });
+
+    return {
+      success: true,
+      channelId,
+      message
+    };
+  } catch (error) {
+    logger.error(chalk.red('❌ Failed to send admin message:'), error);
+    throw error;
   }
 };

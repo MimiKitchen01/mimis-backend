@@ -1,6 +1,9 @@
 import { StreamChat } from 'stream-chat';
 import logger from '../utils/logger.js';
 import chalk from 'chalk';
+import { config } from 'dotenv';
+
+config();
 
 let streamClient;
 
