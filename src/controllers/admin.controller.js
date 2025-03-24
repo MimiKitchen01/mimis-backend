@@ -10,6 +10,7 @@ import * as adminService from '../services/admin.service.js';
 import * as orderService from '../services/order.service.js';
 import logger from '../utils/logger.js';
 import chalk from 'chalk';
+import streamClient from '../config/stream.config.js';
 
 export const adminLogin = async (req, res) => {
   try {
@@ -24,17 +25,35 @@ export const adminLogin = async (req, res) => {
       throw new ApiError(401, 'Invalid admin credentials');
     }
 
+    // Generate JWT token
     const token = jwt.sign(
       { userId: admin._id, role: admin.role },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
 
+    // Generate Stream Chat token
+    const streamToken = streamClient.createToken(admin._id.toString());
+
     logger.info(chalk.green('✅ Admin login successful:'),
       chalk.yellow(admin.email)
     );
 
-    res.json({ token });
+    res.json({
+      token,
+      user: {
+        id: admin._id,
+        email: admin.email,
+        fullName: admin.fullName,
+        role: admin.role,
+        imageUrl: admin.imageUrl
+      },
+      chat: {
+        token: streamToken,
+        apiKey: process.env.STREAM_API_KEY,
+        userId: admin._id.toString()
+      }
+    });
   } catch (error) {
     logger.error(
       chalk.red('❌ Admin login failed:'),

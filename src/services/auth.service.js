@@ -51,35 +51,51 @@ export const verifyUserOTP = async (email, otp) => {
   return user;
 };
 
-export const loginUser = async (email, password) => {
+const generateAuthTokens = async (user) => {
+  // Generate JWT token
+  const token = jwt.sign(
+    { userId: user._id, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+
+  // Generate Stream Chat token
+  const streamToken = streamClient.createToken(user._id.toString());
+
+  return {
+    token,
+    chat: {
+      token: streamToken,
+      apiKey: process.env.STREAM_API_KEY
+    }
+  };
+};
+
+export const loginUser = async (email, password, role = 'user') => {
   logger.info({
-    message: chalk.blue('🔑 User login attempt:'),
-    email: chalk.cyan(email)
+    message: chalk.blue('🔑 Login attempt:'),
+    email: chalk.cyan(email),
+    role: chalk.yellow(role)
   });
 
-  const user = await User.findOne({ email });
+  const query = { email };
+  if (role === 'admin') {
+    query.role = 'admin';
+  }
+
+  const user = await User.findOne(query);
   if (!user || !(await user.comparePassword(password))) {
-    throw new Error('Invalid credentials');
+    throw new Error(`Invalid ${role} credentials`);
   }
 
   if (!user.isVerified) {
     throw new Error('Please verify your email first');
   }
 
-  // Generate JWT token
-  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-    expiresIn: '24h',
-  });
-
-  // Generate Stream Chat token
-  const streamToken = streamClient.createToken(user._id.toString());
+  const tokens = await generateAuthTokens(user);
 
   return {
     user,
-    token,
-    chat: {
-      token: streamToken,
-      apiKey: process.env.STREAM_API_KEY
-    }
+    ...tokens
   };
 };

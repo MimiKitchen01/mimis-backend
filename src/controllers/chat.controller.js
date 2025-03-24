@@ -26,26 +26,23 @@ export const initializeChat = async (req, res) => {
   }
 };
 
-export const initializeAdminChat = async (req, res) => {
+export const joinCustomerChat = async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
-      throw new ApiError(403, 'Only admins can access support chat');
+      throw new ApiError(403, 'Only admins can join customer chats');
     }
 
-    const chatData = await chatService.initializeAdminChat(
-      req.user.userId,
-      req.user.fullName
-    );
+    const { channelId } = req.params;
+    const chatState = await chatService.joinCustomerChat(req.user.userId, channelId);
 
     res.json({
-      message: 'Admin chat initialized successfully',
-      ...chatData
+      message: 'Joined customer chat successfully',
+      chatState
     });
   } catch (error) {
-    logger.error(chalk.red('❌ Admin chat initialization failed:'), error);
+    logger.error(chalk.red('❌ Failed to join chat:'), error);
     res.status(error.statusCode || 500).json({
-      message: 'Failed to initialize admin chat',
-      error: error.message
+      message: error.message
     });
   }
 };
@@ -77,5 +74,47 @@ export const getSupportHistory = async (req, res) => {
   } catch (error) {
     logger.error(chalk.red('❌ Failed to get support history:'), error);
     res.status(500).json({ message: error.message });
+  }
+};
+
+export const getActiveCustomers = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      throw new ApiError(403, 'Only admins can access customer list');
+    }
+
+    const customers = await chatService.getActiveCustomers();
+
+    res.json({
+      message: 'Active customers retrieved successfully',
+      customers,
+      total: customers.length
+    });
+  } catch (error) {
+    logger.error(chalk.red('❌ Failed to get active customers:'), error);
+    res.status(error.statusCode || 500).json({
+      message: error.message
+    });
+  }
+};
+
+export const getCustomerChatHistory = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      throw new ApiError(403, 'Only admins can access chat history');
+    }
+
+    const { customerId } = req.params;
+    const history = await chatService.getCustomerChatHistory(customerId);
+
+    res.json({
+      message: 'Chat history retrieved successfully',
+      history
+    });
+  } catch (error) {
+    logger.error(chalk.red('❌ Failed to get chat history:'), error);
+    res.status(error.statusCode || 500).json({
+      message: error.message
+    });
   }
 };

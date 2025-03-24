@@ -33,10 +33,47 @@ router.post('/initialize', auth, chatController.initializeChat);
  */
 router.get('/history', auth, chatController.getSupportHistory);
 
-router.post('/admin/initialize',
+/**
+ * @swagger
+ * /api/chat/admin/customers:
+ *   get:
+ *     summary: Get all customers with active chats (Admin only)
+ *     tags: [Chat]
+ *     security:
+ *       - BearerAuth: []
+ */
+router.get('/admin/customers',
     auth,
     adminAuth,
-    chatController.initializeAdminChat
+    chatController.getActiveCustomers
+);
+
+/**
+ * @swagger
+ * /api/chat/admin/customers/{customerId}/history:
+ *   get:
+ *     summary: Get chat history for a specific customer (Admin only)
+ *     tags: [Chat]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: customerId
+ *         required: true
+ *         schema:
+ *           type: string
+ */
+router.get('/admin/customers/:customerId/history',
+    auth,
+    adminAuth,
+    chatController.getCustomerChatHistory
+);
+
+// Add route for admin to join customer chat
+router.post('/admin/join/:channelId',
+    auth,
+    adminAuth,
+    chatController.joinCustomerChat
 );
 
 router.post('/admin/message',
