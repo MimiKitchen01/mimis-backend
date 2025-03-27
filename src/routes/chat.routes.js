@@ -9,15 +9,24 @@ const router = express.Router();
  * @swagger
  * /api/chat/initialize:
  *   post:
- *     summary: Initialize customer support chat
+ *     summary: Initialize customer support chat (Customer only)
  *     tags: [Chat]
  *     security:
  *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: Chat session initialized
  */
-router.post('/initialize', auth, chatController.initializeChat);
+router.post('/initialize',
+    auth,
+    (req, res, next) => {
+        // Middleware to prevent admin access
+        if (req.user.role === 'admin') {
+            return res.status(403).json({
+                message: 'Admins cannot initiate customer support chats'
+            });
+        }
+        next();
+    },
+    chatController.initializeChat
+);
 
 /**
  * @swagger

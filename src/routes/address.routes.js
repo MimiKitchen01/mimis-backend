@@ -22,7 +22,6 @@ const router = express.Router();
  *             required:
  *               - street
  *               - city
- *               - state
  *               - zipCode
  *             properties:
  *               type:
@@ -32,8 +31,7 @@ const router = express.Router();
  *                 type: string
  *               city:
  *                 type: string
- *               state:
- *                 type: string
+ *               
  *               zipCode:
  *                 type: string
  *               isDefault:
@@ -98,9 +96,9 @@ router.patch('/:id', auth, async (req, res) => {
       throw new ApiError(404, 'Address not found');
     }
 
-    const allowedUpdates = ['type', 'street', 'city', 'state', 'zipCode', 'isDefault', 'additionalInfo'];
+    const allowedUpdates = ['type', 'street', 'city', 'zipCode', 'isDefault', 'additionalInfo'];
     const updates = Object.keys(req.body);
-    
+
     updates.forEach(update => {
       if (allowedUpdates.includes(update)) {
         address[update] = req.body[update];

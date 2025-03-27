@@ -4,7 +4,12 @@ import chalk from 'chalk';
 
 export const initializeChat = async (req, res) => {
   try {
-    const { userId, fullName } = req.user;
+    const { userId, fullName, role } = req.user;
+
+    // Prevent admins from initiating chats
+    if (role === 'admin') {
+      throw new ApiError(403, 'Admins cannot initiate customer support chats');
+    }
 
     logger.info(chalk.blue('📱 Chat initialization request:'), {
       userId: chalk.cyan(userId),
@@ -19,9 +24,8 @@ export const initializeChat = async (req, res) => {
     });
   } catch (error) {
     logger.error(chalk.red('❌ Chat initialization failed:'), error);
-    res.status(500).json({
-      message: 'Failed to initialize chat',
-      error: error.message
+    res.status(error.statusCode || 500).json({
+      message: error.message
     });
   }
 };
