@@ -163,3 +163,95 @@ export const sendAdminMessage = async (adminId, channelId, message) => {
     throw error;
   }
 };
+
+export const joinCustomerChat = async (adminId, channelId) => {
+  try {
+    logger.info(chalk.blue('👨‍💼 Admin joining chat:'), {
+      adminId: chalk.cyan(adminId),
+      channelId: chalk.yellow(channelId)
+    });
+
+    // Get the channel
+    const channel = await streamClient.channel('messaging', channelId);
+    await channel.watch();
+
+    // Verify it's a support channel
+    if (!channel.data?.custom?.support_channel) {
+      throw new ApiError(400, 'Invalid support channel');
+    }
+
+    // Add admin to channel members
+    await channel.addMembers([adminId]);
+
+    // Update channel status
+    await channel.updatePartial({
+      set: {
+        'custom.status': 'active',
+        'custom.admin_id': adminId
+      }
+    });
+
+    // Send system message with required user_id
+    await channel.sendMessage({
+      text: 'An admin has joined the chat',
+      user_id: 'support_admin', // Use support_admin as the system message sender
+      type: 'system'
+    });
+
+    logger.info(chalk.green('✅ Admin joined chat successfully'), {
+      channelId: chalk.cyan(channelId)
+    });
+
+    return {
+      channel: channel.data,
+      messages: channel.state.messages
+    };
+  } catch (error) {
+    logger.error(chalk.red('❌ Failed to join customer chat:'), {
+      error: error.message,
+      adminId,
+      channelId
+    });
+    throw new ApiError(500, `Failed to join chat: ${error.message}`);
+  }
+};
+
+export const getCustomerChatHistory = async (customerId) => {
+  try {
+    logger.info(chalk.blue('📚 Fetching chat history for customer:'),
+      chalk.cyan(customerId)
+    );
+
+    // Query channels created by this customer
+    const filter = {
+      type: 'messaging',
+      'custom.customer_id': customerId,
+      'custom.support_channel': true
+    };
+
+    const sort = { last_message_at: -1 };
+
+    const channels = await streamClient.queryChannels(filter, sort, {
+      limit: 10,
+      state: true,
+      messages: {
+        limit: 50
+      }
+    });
+
+    return channels.map(channel => ({
+      channelId: channel.id,
+      messages: channel.state.messages,
+      createdAt: channel.data.created_at,
+      status: channel.data.custom?.status || 'closed',
+      lastActive: channel.data.last_message_at
+    }));
+  } catch (error) {
+    logger.error(chalk.red('❌ Error fetching customer chat history:'), {
+      error: error.message,
+      customerId,
+      stack: error.stack
+    });
+    throw new ApiError(500, `Failed to fetch chat history: ${error.message}`);
+  }
+};

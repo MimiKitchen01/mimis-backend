@@ -36,17 +36,24 @@ export const joinCustomerChat = async (req, res) => {
       throw new ApiError(403, 'Only admins can join customer chats');
     }
 
-    const { channelId } = req.params;
-    const chatState = await chatService.joinCustomerChat(req.user.userId, channelId);
+    logger.info(chalk.blue('👨‍💼 Admin joining chat request:'), {
+      adminId: chalk.cyan(req.user.userId),
+      channelId: chalk.yellow(req.params.channelId)
+    });
+
+    const chatData = await chatService.joinCustomerChat(
+      req.user.userId,
+      req.params.channelId
+    );
 
     res.json({
-      message: 'Joined customer chat successfully',
-      chatState
+      message: 'Successfully joined customer chat',
+      ...chatData
     });
   } catch (error) {
     logger.error(chalk.red('❌ Failed to join chat:'), error);
     res.status(error.statusCode || 500).json({
-      message: error.message
+      message: error.message || 'Failed to join chat'
     });
   }
 };
