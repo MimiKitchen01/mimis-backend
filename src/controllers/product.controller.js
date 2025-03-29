@@ -213,3 +213,88 @@ export const deleteProduct = async (req, res) => {
     res.status(404).json({ message: error.message });
   }
 };
+
+export const getAllProductsForAdmin = async (req, res) => {
+  try {
+    logger.info('Admin fetching all products with query:', req.query);
+
+    const { category, isAvailable, isPopular, search, page = 1, limit = 10 } = req.query;
+    const filter = {};
+
+    // Build filter
+    if (category) filter.category = category;
+    if (isAvailable !== undefined) filter.isAvailable = isAvailable === 'true';
+    if (isPopular !== undefined) filter.isPopular = isPopular === 'true';
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [products, total] = await Promise.all([
+      Product.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      Product.countDocuments(filter)
+    ]);
+
+    
+    res.json({
+      count: products.length,
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / limit),
+      products
+    });
+  } catch (error) {
+    logger.error('Error in getAllProductsForAdmin:', error);
+    res.status(500).json({ message: 'Error fetching products', error: error.message });
+  }
+};
+
+export const toggleProductAvailability = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      throw new ApiError(404, 'Product not found');
+    }
+
+    product.isAvailable = !product.isAvailable;
+    await product.save();
+
+    res.json({
+      message: `Product availability toggled to ${product.isAvailable}`,
+      product
+    });
+  } catch (error) {
+    logger.error('Error in toggleProductAvailability:', error);
+    res.status(error.statusCode || 500).json({ message: error.message });
+  }
+};
+
+export const markProductAsPopular = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      throw new ApiError(404, 'Product not found');
+    }
+
+    product.isPopular = true;
+    await product.save();
+
+    res.json({
+      message: 'Product marked as popular successfully',
+      product
+    });
+  } catch (error) {
+    logger.error('Error in markProductAsPopular:', error);
+    res.status(error.statusCode || 500).json({ message: error.message });
+  }
+};

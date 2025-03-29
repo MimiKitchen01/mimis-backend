@@ -196,6 +196,53 @@ router.get('/', productController.getAllProducts);
 
 /**
  * @swagger
+ * /api/products/admin:
+ *   get:
+ *     summary: Get all products (Admin only)
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter products by category
+ *       - in: query
+ *         name: isAvailable
+ *         schema:
+ *           type: boolean
+ *         description: Filter products by availability
+ *       - in: query
+ *         name: isPopular
+ *         schema:
+ *           type: boolean
+ *         description: Filter products by popularity
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search products by name or description
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of products per page
+ *     responses:
+ *       200:
+ *         description: List of products
+ */
+router.get('/admin', auth, adminAuth, productController.getAllProductsForAdmin);
+
+/**
+ * @swagger
  * /api/products/{id}:
  *   get:
  *     summary: Get product by ID
@@ -211,6 +258,48 @@ router.get('/', productController.getAllProducts);
  *         description: Product details
  */
 router.get('/:id', productController.getProduct);
+
+/**
+ * @swagger
+ * /api/products/{id}/toggle-availability:
+ *   patch:
+ *     summary: Toggle product availability (Admin only)
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *     responses:
+ *       200:
+ *         description: Product availability toggled successfully
+ */
+router.patch('/:id/toggle-availability', auth, adminAuth, productController.toggleProductAvailability);
+
+/**
+ * @swagger
+ * /api/products/{id}/mark-popular:
+ *   patch:
+ *     summary: Mark product as popular (Admin only)
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *     responses:
+ *       200:
+ *         description: Product marked as popular successfully
+ */
+router.patch('/:id/mark-popular', auth, adminAuth, productController.markProductAsPopular);
 
 router.patch('/:id', auth, productController.updateProduct);
 router.delete('/:id', auth, productController.deleteProduct);

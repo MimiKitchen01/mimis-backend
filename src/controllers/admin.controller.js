@@ -326,13 +326,32 @@ export const getAdminOverview = async (req, res) => {
 
 export const getAllOrders = async (req, res) => {
   try {
-    const result = await orderService.getOrdersWithFilters(req.query);
-    res.json(result);
+    logger.info(chalk.blue('📦 Admin fetching orders with query:'), 
+      chalk.cyan(JSON.stringify(req.query))
+    );
+
+    const result = await orderService.getOrdersWithFilters({
+      status: req.query.status,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+      page: req.query.page || 1,
+      limit: req.query.limit || 10,
+      sortBy: req.query.sortBy || 'createdAt',
+      sortOrder: req.query.sortOrder || 'desc',
+      searchTerm: req.query.search
+    });
+
+    res.json({
+      message: 'Orders retrieved successfully',
+      ...result
+    });
   } catch (error) {
-    logger.error(chalk.red('❌ Error fetching orders:'),
+    logger.error(chalk.red('❌ Error fetching orders:'), 
       chalk.yellow(error.message)
     );
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      message: error.message || 'Error fetching orders' 
+    });
   }
 };
 

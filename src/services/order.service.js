@@ -206,59 +206,108 @@ export const getOrders = async (userId, status) => {
     .sort('-createdAt');
 };
 
-export const getOrdersWithFilters = async (options) => {
-  logger.info(chalk.blue('📦 Getting orders with filters:'),
-    chalk.cyan(JSON.stringify(options, null, 2))
-  );
+export const getOrdersWithFilters = async (options = {}) => {
+  try {
+    logger.info(chalk.blue('📦 Getting orders with filters:'),
+      chalk.cyan(JSON.stringify(options, null, 2))
+    );
 
-  const { status, startDate, endDate, page, limit, sortBy, sortOrder, searchTerm } = options;
+    const {
+      status,
+      startDate,
+      endDate,
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      searchTerm
+    } = options;
 
-  const query = {};
-  if (status) query.status = status;
-  if (startDate && endDate) {
-    query.createdAt = {
-      $gte: new Date(startDate),
-      $lte: new Date(endDate)
-    };
-  }
+    // Build filter query
+    const filter = {};
 
-  if (searchTerm) {
-    query.$or = [
-      { 'user.fullName': new RegExp(searchTerm, 'i') },
-      { orderNumber: new RegExp(searchTerm, 'i') },
-      { status: new RegExp(searchTerm, 'i') }
-    ];
-  }
-
-  const [orders, total] = await Promise.all([
-    Order.find(query)
-      .populate({
-        path: 'user',
-        select: 'fullName email phoneNumber'
-      })
-      .populate({
-        path: 'deliveryAddress',
-        select: 'street city state zipCode'
-      })
-      .populate({
-        path: 'items.product',
-        select: 'name price imageUrl category'
-      })
-      .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
-      .skip((page - 1) * limit)
-      .limit(limit),
-    Order.countDocuments(query)
-  ]);
-
-  return {
-    orders: transformOrdersForResponse(orders),
-    pagination: {
-      total,
-      page: parseInt(page),
-      pages: Math.ceil(total / limit),
-      hasMore: page < Math.ceil(total / limit)
+    if (status) filter.status = status;
+    if (startDate && endDate) {
+      filter.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
     }
-  };
+
+    if (searchTerm) {
+      filter.$or = [
+        { orderNumber: new RegExp(searchTerm, 'i') },
+        { status: new RegExp(searchTerm, 'i') }
+      ];
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Execute query with proper error handling
+    const [orders, total] = await Promise.all([
+      Order.find(filter)
+        .populate('user', 'fullName email phoneNumber')
+        .populate('deliveryAddress')
+        .populate('items.product')
+        .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      Order.countDocuments(filter)
+    ]);
+
+    logger.info(chalk.green('✅ Retrieved orders:'), {
+      count: chalk.yellow(orders.length),
+      total: chalk.cyan(total)
+    });
+
+    // Transform orders to prevent null reference errors
+    const transformedOrders = orders.map(order => ({
+      id: order._id,
+      orderNumber: order.orderNumber || 'N/A',
+      status: order.status,
+      total: order.total,
+      items: order.items?.map(item => ({
+        product: item.product ? {
+          id: item.product._id,
+          name: item.product.name,
+          price: item.product.price,
+          imageUrl: item.product.imageUrl
+        } : null,
+        quantity: item.quantity,
+        price: item.price
+      })) || [],
+      customer: order.user ? {
+        id: order.user._id,
+        name: order.user.fullName,
+        email: order.user.email,
+        phone: order.user.phoneNumber
+      } : null,
+      address: order.deliveryAddress ? {
+        street: order.deliveryAddress.street,
+        city: order.deliveryAddress.city,
+        zipCode: order.deliveryAddress.zipCode
+      } : null,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt
+    }));
+
+    return {
+      orders: transformedOrders,
+      pagination: {
+        total,
+        page: parseInt(page),
+        pages: Math.ceil(total / parseInt(limit)),
+        hasMore: page < Math.ceil(total / parseInt(limit))
+      }
+    };
+  } catch (error) {
+    logger.error(chalk.red('❌ Error fetching orders:'), {
+      error: error.message,
+      stack: error.stack
+    });
+    throw error;
+  }
 };
 
 export const getOrderStats = async () => {
