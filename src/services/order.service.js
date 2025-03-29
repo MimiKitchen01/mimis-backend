@@ -6,6 +6,7 @@ import { ORDER_STATUS, PAYMENT_STATUS } from '../constants/index.js';
 import chalk from 'chalk';
 import logger from '../utils/logger.js';
 import { Address } from '../models/address.model.js';
+import * as notificationService from './notification.service.js';
 
 
 export const validateOrderCreation = async (userId, addressId = null) => {
@@ -65,6 +66,15 @@ export const createOrder = async (userId, addressId = null) => {
   logger.info(chalk.green('✅ Order created successfully:'), {
     orderId: chalk.cyan(order._id),
     total: chalk.yellow(`$${order.total.toFixed(2)}`)
+  });
+
+  // Create notification for order creation
+  await notificationService.createNotification({
+    user: userId,
+    title: 'Order Created',
+    message: `Your order #${order.orderNumber} has been created successfully.`,
+    type: 'order',
+    orderId: order._id
   });
 
   return order.populate(['items.product', 'deliveryAddress', 'user']);
@@ -166,6 +176,15 @@ export const updateOrderStatus = async (orderId, status, adminId) => {
 
   // Send notifications based on status change
   await sendOrderStatusNotification(order);
+
+  // Create notification for status update
+  await notificationService.createNotification({
+    user: order.user,
+    title: 'Order Status Updated',
+    message: `Your order #${order.orderNumber} is now ${status}.`,
+    type: 'order',
+    orderId: order._id
+  });
 
   return order.populate(['items.product', 'deliveryAddress', 'user']);
 };

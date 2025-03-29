@@ -23,8 +23,19 @@ export const addToCart = async (req, res) => {
   try {
     const { productId, quantity } = req.body;
 
-    // Find the product to get its price
-    const product = await Product.findById(productId);
+    // Add timeout promise
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new ApiError(408, 'Request timeout while adding to cart'));
+      }, 8000); // 8 second timeout
+    });
+
+    // Race between the actual operation and timeout
+    const product = await Promise.race([
+      Product.findById(productId),
+      timeoutPromise
+    ]);
+
     if (!product) {
       throw new ApiError(404, 'Product not found');
     }
@@ -76,10 +87,23 @@ export const addToCart = async (req, res) => {
       cart
     });
   } catch (error) {
-    logger.error('Error in addToCart:', error);
+    logger.error('Error in addToCart:', {
+      error: error.message,
+      stack: error.stack,
+      productId: req.body.productId
+    });
+
+    // Handle specific timeout errors
+    if (error.name === 'MongooseError' && error.message.includes('buffering timed out')) {
+      return res.status(408).json({
+        status: 'error',
+        message: 'Request timed out. Please try again.'
+      });
+    }
+
     res.status(error.statusCode || 400).json({
-      message: error.message,
-      errors: error.errors
+      status: 'error',
+      message: error.message
     });
   }
 };
@@ -87,33 +111,56 @@ export const addToCart = async (req, res) => {
 export const updateCartItem = async (req, res) => {
   try {
     const { productId, quantity } = req.body;
-    const cart = await Cart.findOne({ user: req.user.userId });
+    
+    logger.info(chalk.blue('🛒 Cart update request:'), {
+      userId: chalk.cyan(req.user.userId),
+      productId: chalk.yellow(productId),
+      quantity: chalk.green(quantity)
+    });
 
-    if (!cart) {
-      throw new ApiError(404, 'Cart not found');
-    }
+    const cart = await cartService.updateCartItem(req.user.userId, productId, quantity);
+    
+    const message = quantity < 1 
+      ? 'Item removed from cart'
+      : 'Cart updated successfully';
 
-    const itemIndex = cart.items.findIndex(item =>
-      item.product.toString() === productId
-    );
-
-    if (itemIndex === -1) {
-      throw new ApiError(404, 'Item not found in cart');
-    }
-
-    if (quantity <= 0) {
-      cart.items.splice(itemIndex, 1);
-    } else {
-      cart.items[itemIndex].quantity = quantity;
-    }
-
-    await cart.save();
-    await cart.populate('items.product');
-
-    res.json(cart);
+    res.json({
+      status: 'success',
+      message,
+      data: cart
+    });
   } catch (error) {
-    logger.error('Error in updateCartItem:', error);
-    res.status(400).json({ message: error.message });
+    logger.error(chalk.red('Error updating cart:'), error);
+    res.status(error.statusCode || 400).json({
+      status: 'error',
+      message: error.message
+    });
+  }
+};
+
+export const removeCartItem = async (req, res, next) => {
+  try {
+    const { productId } = req.params;
+    const userId = req.user.userId; // Changed from req.user._id to req.user.userId
+    
+    logger.info(chalk.blue('🗑️ Attempting to remove item:'), {
+      userId: chalk.cyan(userId),
+      productId: chalk.yellow(productId)
+    });
+    
+    const cart = await cartService.removeFromCart(userId, productId);
+    res.json({ 
+      status: 'success',
+      message: 'Item removed from cart',
+      data: cart 
+    });
+  } catch (error) {
+    logger.error(chalk.red('Failed to remove item from cart:'), {
+      error: error.message,
+      userId: req.user?.userId,
+      productId: req.params.productId
+    });
+    next(error);
   }
 };
 
@@ -206,5 +253,58 @@ export const processPayment = async (req, res) => {
   } catch (error) {
     logger.error('Error in processPayment:', error);
     res.status(error.statusCode || 400).json({ message: error.message });
+  }
+};
+
+export const getPaidOrders = async (req, res) => {
+  try {
+    logger.info(chalk.blue('📋 Fetching paid orders for user:'), chalk.cyan(req.user.userId));
+    
+    const orders = await Order.find({
+      user: req.user.userId,
+      paymentStatus: 'completed'
+    })
+    .populate(['items.product', 'deliveryAddress'])
+    .sort('-createdAt');
+
+    res.json({
+      status: 'success',
+      count: orders.length,
+      data: orders
+    });
+  } catch (error) {
+    logger.error(chalk.red('Failed to fetch paid orders:'), chalk.yellow(error.message));
+    res.status(500).json({ 
+      status: 'error',
+      message: error.message 
+    });
+  }
+};
+
+export const getOngoingOrders = async (req, res) => {
+  try {
+    logger.info(chalk.blue('📋 Fetching ongoing orders for user:'), chalk.cyan(req.user.userId));
+    
+    // Get orders that are not in final states (delivered or cancelled)
+    const orders = await Order.find({
+      user: req.user.userId,
+      status: { 
+        $in: ['pending', 'confirmed', 'preparing', 'ready'] 
+      }
+    })
+    .populate(['items.product', 'deliveryAddress'])
+    .sort('-createdAt');
+
+    res.json({
+      status: 'success',
+      count: orders.length,
+      data: orders
+    });
+  } catch (error) {
+    logger.error(chalk.red('Failed to fetch ongoing orders:'), chalk.yellow(error.message));
+    res.status(500).json({ 
+      status: 'error',
+      message: error.message 
+    });
   }
 };

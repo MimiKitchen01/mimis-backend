@@ -3,7 +3,7 @@ import logger from '../utils/logger.js';
 import chalk from 'chalk';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2023-10-16' // Use the latest API version
+  apiVersion: '2025-10-16' // Use the latest API version
 });
 
 logger.info(chalk.blue('💳 Stripe initialized'), {

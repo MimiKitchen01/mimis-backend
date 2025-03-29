@@ -18,7 +18,7 @@ import passport from 'passport';
 import './config/passport.config.js';
 import chatRoutes from './routes/chat.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
-
+import notificationRoutes from './routes/notification.routes.js';
 
 const app = express();
 
@@ -57,6 +57,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Error handling
 

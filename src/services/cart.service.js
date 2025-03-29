@@ -60,20 +60,34 @@ export const addToCart = async (userId, productId, quantity) => {
 };
 
 export const updateCartItem = async (userId, productId, quantity) => {
+  logger.info(chalk.blue('🛒 Updating cart item:'), {
+    userId: chalk.cyan(userId),
+    productId: chalk.yellow(productId),
+    quantity: chalk.green(quantity)
+  });
+
   const cart = await Cart.findOne({ user: userId });
   if (!cart) {
     throw new ApiError(404, 'Cart not found');
   }
 
-  const item = cart.items.find(item => item.product.equals(productId));
-  if (!item) {
+  // Find the item index in the cart
+  const itemIndex = cart.items.findIndex(item => 
+    item.product.toString() === productId
+  );
+
+  if (itemIndex === -1) {
     throw new ApiError(404, 'Item not found in cart');
   }
 
-  if (quantity <= 0) {
-    cart.items = cart.items.filter(item => !item.product.equals(productId));
+  // If quantity is less than 1, remove the item
+  if (quantity < 1) {
+    logger.info(chalk.yellow('🗑️ Removing item from cart due to quantity < 1'));
+    cart.items = cart.items.filter(item => 
+      !item.product.equals(productId)
+    );
   } else {
-    item.quantity = quantity;
+    cart.items[itemIndex].quantity = quantity;
   }
 
   await cart.save();
@@ -87,4 +101,22 @@ export const clearCart = async (userId) => {
     await cart.save();
   }
   return cart;
+};
+
+export const removeFromCart = async (userId, productId) => {
+  logger.info(chalk.blue('🗑️ Removing from cart:'), {
+    userId: chalk.cyan(userId),
+    productId: chalk.yellow(productId)
+  });
+
+  const cart = await Cart.findOne({ user: userId });
+  if (!cart) {
+    throw new ApiError(404, 'Cart not found');
+  }
+
+  // Remove the item from cart.items array
+  cart.items = cart.items.filter(item => !item.product.equals(productId));
+  
+  await cart.save();
+  return cart.populate('items.product');
 };

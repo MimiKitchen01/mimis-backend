@@ -4,8 +4,22 @@ import logger from '../utils/logger.js';
 
 export const connectDatabase = async () => {
   try {
-    const connection = await mongoose.connect(process.env.MONGODB_URI);
+    const options = {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      family: 4,
+      maxPoolSize: 50,
+      connectTimeoutMS: 10000,
+      retryWrites: true
+    };
+
+    const connection = await mongoose.connect(process.env.MONGODB_URI, options);
     
+    // Set default timeout for operations
+    mongoose.set('bufferTimeoutMS', 15000);
+
     // Log detailed connection info
     logger.info({
       message: chalk.green.bold('🎉 MongoDB Connected Successfully'),
@@ -32,6 +46,13 @@ export const connectDatabase = async () => {
           message: err.message,
           stack: err.stack
         }
+      });
+    });
+
+    mongoose.connection.on('timeout', () => {
+      logger.error({
+        message: chalk.red('MongoDB Operation Timeout'),
+        timestamp: new Date().toISOString()
       });
     });
 

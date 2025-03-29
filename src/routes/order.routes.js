@@ -139,6 +139,31 @@ router.put('/cart/update', auth, orderController.updateCartItem);
 
 /**
  * @swagger
+ * /api/orders/cart/remove/{productId}:
+ *   delete:
+ *     summary: Remove item from cart
+ *     tags: [Orders]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product to remove from cart
+ *     responses:
+ *       200:
+ *         description: Item removed from cart
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Cart'
+ */
+router.delete('/cart/remove/:productId', auth, orderController.removeCartItem);
+
+/**
+ * @swagger
  * /api/orders/create:
  *   post:
  *     summary: Create order from cart
@@ -192,6 +217,60 @@ router.post('/create', auth, orderController.createOrder);
  *                 $ref: '#/components/schemas/Order'
  */
 router.get('/list', auth, orderController.getOrders);
+
+/**
+ * @swagger
+ * /api/orders/paid:
+ *   get:
+ *     summary: Get user's paid orders
+ *     tags: [Orders]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of paid orders
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 count:
+ *                   type: number
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Order'
+ */
+router.get('/paid', auth, orderController.getPaidOrders);
+
+/**
+ * @swagger
+ * /api/orders/ongoing:
+ *   get:
+ *     summary: Get user's ongoing orders
+ *     tags: [Orders]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of ongoing orders (pending, confirmed, preparing, ready)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 count:
+ *                   type: number
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Order'
+ */
+router.get('/ongoing', auth, orderController.getOngoingOrders);
 
 /**
  * @swagger
