@@ -171,6 +171,14 @@ export const joinCustomerChat = async (adminId, channelId) => {
       channelId: chalk.yellow(channelId)
     });
 
+    // First ensure admin user exists in Stream Chat
+    await streamClient.upsertUser({
+      id: adminId,
+      role: 'admin',
+      name: 'Customer Support Admin',
+      image: `https://ui-avatars.com/api/?name=Admin&background=007bff&color=fff`
+    });
+
     // Get the channel
     const channel = await streamClient.channel('messaging', channelId);
     await channel.watch();
@@ -191,10 +199,10 @@ export const joinCustomerChat = async (adminId, channelId) => {
       }
     });
 
-    // Send system message with required user_id
+    // Send system message
     await channel.sendMessage({
       text: 'An admin has joined the chat',
-      user_id: 'support_admin', // Use support_admin as the system message sender
+      user_id: 'support_admin',
       type: 'system'
     });
 

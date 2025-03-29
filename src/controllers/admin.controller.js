@@ -32,6 +32,14 @@ export const adminLogin = async (req, res) => {
       { expiresIn: '24h' }
     );
 
+    // Create/Update Stream Chat user
+    await streamClient.upsertUser({
+      id: admin._id.toString(),
+      role: 'admin',
+      name: admin.fullName || 'Customer Support Admin',
+      image: admin.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(admin.fullName)}`
+    });
+
     // Generate Stream Chat token
     const streamToken = streamClient.createToken(admin._id.toString());
 
