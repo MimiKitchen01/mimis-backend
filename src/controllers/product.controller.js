@@ -62,17 +62,17 @@ export const createProduct = async (req, res) => {
         spicyLevel: req.body.spicyLevel
       }),
 
-      // Add discount fields if provided
-      ...(req.body.discount && {
+      // Add discount only if discount data is provided
+      ...(req.body['discount.type'] && {
         discount: {
-          type: req.body.discount.type,
-          value: parseFloat(req.body.discount.value),
-          isActive: req.body.discount.isActive === 'true',
-          ...(req.body.discount.startDate && {
-            startDate: new Date(req.body.discount.startDate)
+          type: req.body['discount.type'],
+          value: parseFloat(req.body['discount.value'] || 0),
+          isActive: req.body['discount.isActive'] === 'true',
+          ...(req.body['discount.startDate'] && {
+            startDate: new Date(req.body['discount.startDate'])
           }),
-          ...(req.body.discount.endDate && {
-            endDate: new Date(req.body.discount.endDate)
+          ...(req.body['discount.endDate'] && {
+            endDate: new Date(req.body['discount.endDate'])
           })
         }
       })
@@ -228,19 +228,24 @@ export const updateProduct = async (req, res, next) => {
       updateData.ingredients = JSON.parse(updateData.ingredients);
     }
 
-    // Handle discount update if provided
-    if (updateData.discount) {
+    // Handle discount fields if provided
+    if (req.body['discount.type']) {
       updateData.discount = {
-        type: updateData.discount.type,
-        value: parseFloat(updateData.discount.value),
-        isActive: updateData.discount.isActive === 'true',
-        ...(updateData.discount.startDate && {
-          startDate: new Date(updateData.discount.startDate)
+        type: req.body['discount.type'],
+        value: parseFloat(req.body['discount.value'] || 0),
+        isActive: req.body['discount.isActive'] === 'true',
+        ...(req.body['discount.startDate'] && {
+          startDate: new Date(req.body['discount.startDate'])
         }),
-        ...(updateData.discount.endDate && {
-          endDate: new Date(updateData.discount.endDate)
+        ...(req.body['discount.endDate'] && {
+          endDate: new Date(req.body['discount.endDate'])
         })
       };
+    }
+
+    // Remove discount if explicitly requested
+    if (req.body.removeDiscount === 'true') {
+      updateData.discount = null;
     }
 
     const product = await productService.updateProduct(req.params.id, updateData);
