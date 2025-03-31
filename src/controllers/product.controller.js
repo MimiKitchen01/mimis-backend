@@ -3,6 +3,7 @@ import { formatImageUrls } from '../middleware/upload.middleware.js';
 import { ApiError } from '../middleware/error.middleware.js';
 import Product from '../models/product.model.js';
 import logger from '../utils/logger.js';
+import chalk from 'chalk'; // Add chalk import
 import * as imageService from '../services/image.service.js';
 
 export const createProduct = async (req, res) => {
@@ -293,9 +294,9 @@ export const deleteProduct = async (req, res) => {
       throw new ApiError(403, 'Only admins can delete products');
     }
 
-    logger.info(chalk.blue('🗑️ Delete product request:'), {
-      productId: chalk.cyan(req.params.id),
-      adminId: chalk.yellow(req.user.userId)
+    logger.info('🗑️ Delete product request:', {
+      productId: req.params.id,
+      adminId: req.user.userId
     });
 
     await productService.deleteProduct(req.params.id);
@@ -305,7 +306,7 @@ export const deleteProduct = async (req, res) => {
       message: 'Product deleted successfully'
     });
   } catch (error) {
-    logger.error(chalk.red('Failed to delete product:'), {
+    logger.error('Failed to delete product:', {
       error: error.message,
       productId: req.params.id
     });
