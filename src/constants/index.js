@@ -20,17 +20,14 @@ export const PAYMENT_STATUS = {
 };
 
 export const PRODUCT_CATEGORIES = [
-  'Appetizers',
-  'Main Course',
-  'Rice',
-  'Burgers',
-  'Pizza',
-  'Pasta',
-  'Salads',
-  'Beverages',
-  'Desserts',
-  'Sides',
-  'Soups'
+  'Appetizers Menu',
+  'Snack Menu',
+  'Drink Menu',
+  'Rice Menu',
+  'Soups Menu',
+  'Extra Swallow',
+  'Protein Menu'
+  
 ];
 
 export const ALLERGENS = [
