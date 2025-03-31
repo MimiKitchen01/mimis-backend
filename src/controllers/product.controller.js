@@ -60,23 +60,26 @@ export const createProduct = async (req, res) => {
       }),
       ...(req.body.spicyLevel && {
         spicyLevel: req.body.spicyLevel
-      }),
-
-      // Add discount only if discount data is provided
-      ...(req.body['discount.type'] && {
-        discount: {
-          type: req.body['discount.type'],
-          value: parseFloat(req.body['discount.value'] || 0),
-          isActive: req.body['discount.isActive'] === 'true',
-          ...(req.body['discount.startDate'] && {
-            startDate: new Date(req.body['discount.startDate'])
-          }),
-          ...(req.body['discount.endDate'] && {
-            endDate: new Date(req.body['discount.endDate'])
-          })
-        }
       })
     };
+
+    // Handle discount data if provided
+    if (req.body.discount) {
+      try {
+        const discountData = JSON.parse(req.body.discount);
+        if (discountData.type && discountData.value) {
+          productData.discount = {
+            type: discountData.type,
+            value: parseFloat(discountData.value),
+            isActive: discountData.isActive === true,
+            ...(discountData.startDate && { startDate: new Date(discountData.startDate) }),
+            ...(discountData.endDate && { endDate: new Date(discountData.endDate) })
+          };
+        }
+      } catch (error) {
+        logger.warn('Invalid discount data format:', error);
+      }
+    }
 
     // Add nutrition info if any field is provided
     const nutritionFields = ['calories', 'protein', 'carbohydrates', 'fats', 'fiber'];
@@ -214,45 +217,69 @@ export const updateProduct = async (req, res, next) => {
     }
 
     let updateData = { ...req.body };
-    
-    // Handle image updates if files are included
+
+    // Handle files if included
     if (req.files?.length) {
-      updateData = {
-        ...updateData,
-        ...formatImageUrls(req.files)
-      };
+      updateData.imageUrl = req.files[0].location;
+      if (req.files.length > 1) {
+        updateData.additionalImages = req.files.slice(1).map(file => file.location);
+      }
     }
 
-    // Parse ingredients if included
-    if (updateData.ingredients) {
-      updateData.ingredients = JSON.parse(updateData.ingredients);
+    // Parse JSON fields
+    const jsonFields = ['ingredients', 'allergens', 'dietaryInfo', 'customizationOptions'];
+    jsonFields.forEach(field => {
+      if (updateData[field]) {
+        try {
+          updateData[field] = JSON.parse(updateData[field]);
+        } catch (error) {
+          logger.warn(`Invalid JSON for field ${field}:`, error);
+        }
+      }
+    });
+
+    // Handle discount updates
+    if (updateData.discount) {
+      try {
+        const discountData = JSON.parse(updateData.discount);
+        updateData.discount = {
+          type: discountData.type,
+          value: parseFloat(discountData.value),
+          isActive: discountData.isActive === true,
+          ...(discountData.startDate && { startDate: new Date(discountData.startDate) }),
+          ...(discountData.endDate && { endDate: new Date(discountData.endDate) })
+        };
+      } catch (error) {
+        logger.warn('Invalid discount data format:', error);
+        delete updateData.discount;
+      }
     }
 
-    // Handle discount fields if provided
-    if (req.body['discount.type']) {
+    // Remove discount if requested
+    if (updateData.removeDiscount === 'true') {
       updateData.discount = {
-        type: req.body['discount.type'],
-        value: parseFloat(req.body['discount.value'] || 0),
-        isActive: req.body['discount.isActive'] === 'true',
-        ...(req.body['discount.startDate'] && {
-          startDate: new Date(req.body['discount.startDate'])
-        }),
-        ...(req.body['discount.endDate'] && {
-          endDate: new Date(req.body['discount.endDate'])
-        })
+        type: null,
+        value: 0,
+        isActive: false,
+        startDate: null,
+        endDate: null
       };
     }
 
-    // Remove discount if explicitly requested
-    if (req.body.removeDiscount === 'true') {
-      updateData.discount = null;
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!product) {
+      throw new ApiError(404, 'Product not found');
     }
 
-    const product = await productService.updateProduct(req.params.id, updateData);
-    
     res.json({
+      status: 'success',
       message: 'Product updated successfully',
-      product
+      data: product
     });
   } catch (error) {
     next(error);
