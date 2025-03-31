@@ -60,6 +60,21 @@ export const createProduct = async (req, res) => {
       }),
       ...(req.body.spicyLevel && {
         spicyLevel: req.body.spicyLevel
+      }),
+
+      // Add discount fields if provided
+      ...(req.body.discount && {
+        discount: {
+          type: req.body.discount.type,
+          value: parseFloat(req.body.discount.value),
+          isActive: req.body.discount.isActive === 'true',
+          ...(req.body.discount.startDate && {
+            startDate: new Date(req.body.discount.startDate)
+          }),
+          ...(req.body.discount.endDate && {
+            endDate: new Date(req.body.discount.endDate)
+          })
+        }
       })
     };
 
@@ -213,6 +228,21 @@ export const updateProduct = async (req, res, next) => {
       updateData.ingredients = JSON.parse(updateData.ingredients);
     }
 
+    // Handle discount update if provided
+    if (updateData.discount) {
+      updateData.discount = {
+        type: updateData.discount.type,
+        value: parseFloat(updateData.discount.value),
+        isActive: updateData.discount.isActive === 'true',
+        ...(updateData.discount.startDate && {
+          startDate: new Date(updateData.discount.startDate)
+        }),
+        ...(updateData.discount.endDate && {
+          endDate: new Date(updateData.discount.endDate)
+        })
+      };
+    }
+
     const product = await productService.updateProduct(req.params.id, updateData);
     
     res.json({
@@ -320,5 +350,43 @@ export const markProductAsPopular = async (req, res) => {
   } catch (error) {
     logger.error('Error in markProductAsPopular:', error);
     res.status(error.statusCode || 500).json({ message: error.message });
+  }
+};
+
+// Add a new endpoint for managing discounts
+export const updateProductDiscount = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { type, value, startDate, endDate, isActive } = req.body;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      throw new ApiError(404, 'Product not found');
+    }
+
+    product.discount = {
+      type,
+      value: parseFloat(value),
+      isActive: isActive === true,
+      ...(startDate && { startDate: new Date(startDate) }),
+      ...(endDate && { endDate: new Date(endDate) })
+    };
+
+    await product.save();
+
+    res.json({
+      status: 'success',
+      message: 'Product discount updated successfully',
+      data: {
+        product,
+        discountedPrice: product.discountedPrice
+      }
+    });
+  } catch (error) {
+    logger.error('Error updating product discount:', error);
+    res.status(error.statusCode || 400).json({
+      status: 'error',
+      message: error.message
+    });
   }
 };

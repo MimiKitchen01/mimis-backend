@@ -88,9 +88,46 @@ const productSchema = new mongoose.Schema({
   orderCount: {
     type: Number,
     default: 0
+  },
+  discount: {
+    type: {
+      type: String,
+      enum: ['percentage', 'fixed'],
+      default: null
+    },
+    value: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    startDate: Date,
+    endDate: Date,
+    isActive: {
+      type: Boolean,
+      default: false
+    }
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
+
+// Add virtual for discounted price
+productSchema.virtual('discountedPrice').get(function() {
+  if (!this.discount?.isActive) return this.price;
+  
+  const now = new Date();
+  if (this.discount.startDate && now < this.discount.startDate) return this.price;
+  if (this.discount.endDate && now > this.discount.endDate) return this.price;
+
+  if (this.discount.type === 'percentage') {
+    return this.price * (1 - this.discount.value / 100);
+  } else if (this.discount.type === 'fixed') {
+    return Math.max(0, this.price - this.discount.value);
+  }
+  
+  return this.price;
 });
 
 // Update image validation to require minimum 1 image
