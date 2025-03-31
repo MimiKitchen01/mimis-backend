@@ -93,11 +93,11 @@ const productSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Validate number of images
+// Update image validation to require minimum 1 image
 productSchema.pre('save', function(next) {
   const totalImages = 1 + (this.additionalImages?.length || 0);
-  if (totalImages < 2) {
-    next(new Error('Product must have at least 2 images'));
+  if (totalImages < 1) {
+    next(new Error('Product must have at least 1 image'));
   } else if (totalImages > 8) {
     next(new Error('Product cannot have more than 8 images'));
   } else {
