@@ -293,10 +293,27 @@ export const deleteProduct = async (req, res) => {
       throw new ApiError(403, 'Only admins can delete products');
     }
 
+    logger.info(chalk.blue('🗑️ Delete product request:'), {
+      productId: chalk.cyan(req.params.id),
+      adminId: chalk.yellow(req.user.userId)
+    });
+
     await productService.deleteProduct(req.params.id);
-    res.json({ message: 'Product deleted successfully' });
+
+    res.json({
+      status: 'success',
+      message: 'Product deleted successfully'
+    });
   } catch (error) {
-    res.status(404).json({ message: error.message });
+    logger.error(chalk.red('Failed to delete product:'), {
+      error: error.message,
+      productId: req.params.id
+    });
+
+    res.status(error.statusCode || 500).json({
+      status: 'error',
+      message: error.message || 'Failed to delete product'
+    });
   }
 };
 

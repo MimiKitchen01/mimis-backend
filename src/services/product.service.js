@@ -89,16 +89,36 @@ export const updateProduct = async (id, updateData) => {
   return product;
 };
 
-export const deleteProduct = async (id) => {
-  const product = await Product.findByIdAndUpdate(
-    id,
-    { isActive: false },
-    { new: true }
-  );
+export const deleteProduct = async (productId) => {
+  try {
+    logger.info(chalk.blue('🗑️ Attempting to delete product:'), 
+      chalk.cyan(productId)
+    );
 
-  if (!product) {
-    throw new Error('Product not found');
+    const product = await Product.findById(productId);
+    if (!product) {
+      throw new ApiError(404, 'Product not found');
+    }
+
+    // Check if product can be deleted (e.g., no active orders)
+    const isInActiveOrders = await Order.exists({
+      'items.product': productId,
+      status: { $in: ['pending', 'confirmed', 'preparing'] }
+    });
+
+    if (isInActiveOrders) {
+      throw new ApiError(400, 'Cannot delete product with active orders');
+    }
+
+    await Product.findByIdAndDelete(productId);
+    
+    logger.info(chalk.green('✅ Product deleted successfully'));
+    return true;
+  } catch (error) {
+    logger.error(chalk.red('❌ Error deleting product:'), {
+      error: error.message,
+      productId
+    });
+    throw error;
   }
-
-  return product;
 };
