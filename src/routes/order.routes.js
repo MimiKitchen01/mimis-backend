@@ -78,7 +78,7 @@ router.get('/cart', auth, orderController.getCart);
  * @swagger
  * /api/orders/cart/add:
  *   post:
- *     summary: Add item to cart
+ *     summary: Add multiple items to cart
  *     tags: [Orders]
  *     security:
  *       - BearerAuth: []
@@ -89,21 +89,27 @@ router.get('/cart', auth, orderController.getCart);
  *           schema:
  *             type: object
  *             required:
- *               - productId
- *               - quantity
+ *               - items
  *             properties:
- *               productId:
- *                 type: string
- *               quantity:
- *                 type: number
- *                 minimum: 1
- *     responses:
- *       200:
- *         description: Updated cart
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Cart'
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - productId
+ *                     - quantity
+ *                   properties:
+ *                     productId:
+ *                       type: string
+ *                     quantity:
+ *                       type: number
+ *                       minimum: 1
+ *           example:
+ *             items:
+ *               - productId: "123"
+ *                 quantity: 2
+ *               - productId: "456"
+ *                 quantity: 1
  */
 router.post('/cart/add', auth, orderController.addToCart);
 

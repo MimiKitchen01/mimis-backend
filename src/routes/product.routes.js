@@ -243,21 +243,34 @@ router.get('/admin', auth, adminAuth, productController.getAllProductsForAdmin);
 
 /**
  * @swagger
- * /api/products/{id}:
+ * /api/products/random:
  *   get:
- *     summary: Get product by ID
+ *     summary: Get 6 random products
  *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
  *     responses:
  *       200:
- *         description: Product details
+ *         description: List of 6 random products
  */
-router.get('/:id', productController.getProduct);
+router.get('/random', productController.getRandomProducts);
+
+/**
+ * @swagger
+ * /api/products/most-ordered:
+ *   get:
+ *     summary: Get most ordered products
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 6
+ *         description: Number of products to return
+ *     responses:
+ *       200:
+ *         description: List of most ordered products
+ */
+router.get('/most-ordered', productController.getMostOrderedProducts);
 
 /**
  * @swagger
@@ -303,5 +316,23 @@ router.patch('/:id/mark-popular', auth, adminAuth, productController.markProduct
 
 router.patch('/:id', auth, productController.updateProduct);
 router.delete('/:id', auth, productController.deleteProduct);
+
+/**
+ * @swagger
+ * /api/products/{id}:
+ *   get:
+ *     summary: Get product by ID
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Product details
+ */
+router.get('/:id', productController.getProduct);
 
 export default router;

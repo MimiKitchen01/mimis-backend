@@ -440,3 +440,83 @@ export const updateProductDiscount = async (req, res) => {
     });
   }
 };
+
+export const getRandomProducts = async (req, res) => {
+  try {
+    logger.info('Getting random products');
+
+    const products = await Product.aggregate([
+      { $match: { isAvailable: true } },
+      { $sample: { size: 6 } },
+      {
+        $project: {
+          name: 1,
+          description: 1,
+          price: 1,
+          imageUrl: 1,
+          category: 1,
+          isPopular: 1,
+          ratings: 1,
+          discountedPrice: 1,
+          discount: 1
+        }
+      }
+    ]);
+
+    res.json({
+      status: 'success',
+      count: products.length,
+      data: products
+    });
+  } catch (error) {
+    logger.error('Error getting random products:', error);
+    res.status(500).json({ 
+      status: 'error',
+      message: error.message 
+    });
+  }
+};
+
+export const getMostOrderedProducts = async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 6;
+    
+    logger.info(`Getting top ${limit} most ordered products`);
+
+    const products = await Product.aggregate([
+      { $match: { isAvailable: true } },
+      {
+        $sort: { 
+          orderCount: -1,
+          'ratings.average': -1
+        }
+      },
+      { $limit: limit },
+      {
+        $project: {
+          name: 1,
+          description: 1,
+          price: 1,
+          imageUrl: 1,
+          category: 1,
+          orderCount: 1,
+          ratings: 1,
+          discount: 1,
+          discountedPrice: 1
+        }
+      }
+    ]);
+
+    res.json({
+      status: 'success',
+      count: products.length,
+      data: products
+    });
+  } catch (error) {
+    logger.error('Error getting most ordered products:', error);
+    res.status(500).json({ 
+      status: 'error',
+      message: error.message 
+    });
+  }
+};

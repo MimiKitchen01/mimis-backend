@@ -21,33 +21,49 @@ export const getCart = async (req, res) => {
 
 export const addToCart = async (req, res) => {
   try {
-    const { productId, quantity } = req.body;
+    const { items } = req.body;
 
-    // Add timeout promise
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => {
-        reject(new ApiError(408, 'Request timeout while adding to cart'));
-      }, 8000); // 8 second timeout
-    });
-
-    // Race between the actual operation and timeout
-    const product = await Promise.race([
-      Product.findById(productId),
-      timeoutPromise
-    ]);
-
-    if (!product) {
-      throw new ApiError(404, 'Product not found');
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new ApiError(400, 'Please provide an array of items to add to cart');
     }
 
-    // Validate product availability
-    if (!product.isAvailable) {
-      throw new ApiError(400, 'Product is not available');
+    // Validate items structure
+    items.forEach(item => {
+      if (!item.productId || !item.quantity) {
+        throw new ApiError(400, 'Each item must have productId and quantity');
+      }
+      if (item.quantity < 1) {
+        throw new ApiError(400, 'Quantity must be at least 1');
+      }
+    });
+
+    // Get all products at once
+    const productIds = items.map(item => item.productId);
+    const products = await Product.find({ _id: { $in: productIds } });
+
+    // Check if all products exist and are available
+    const unavailableProducts = [];
+    const notFoundProducts = [];
+    
+    productIds.forEach(id => {
+      const product = products.find(p => p._id.toString() === id);
+      if (!product) {
+        notFoundProducts.push(id);
+      } else if (!product.isAvailable) {
+        unavailableProducts.push(product.name);
+      }
+    });
+
+    if (notFoundProducts.length > 0) {
+      throw new ApiError(404, `Products not found: ${notFoundProducts.join(', ')}`);
+    }
+
+    if (unavailableProducts.length > 0) {
+      throw new ApiError(400, `The following products are not available: ${unavailableProducts.join(', ')}`);
     }
 
     // Find or create cart
     let cart = await Cart.findOne({ user: req.user.userId });
-
     if (!cart) {
       cart = new Cart({
         user: req.user.userId,
@@ -55,51 +71,51 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    // Check if product already exists in cart
-    const existingItemIndex = cart.items.findIndex(
-      item => item.product.toString() === productId
-    );
+    // Process each item
+    for (const item of items) {
+      const product = products.find(p => p._id.toString() === item.productId);
+      
+      // Find if product already exists in cart
+      const existingItemIndex = cart.items.findIndex(
+        cartItem => cartItem.product.toString() === item.productId
+      );
 
-    if (existingItemIndex > -1) {
-      // Update existing item quantity
-      cart.items[existingItemIndex].quantity += quantity;
-    } else {
-      // Add new item with product price
-      cart.items.push({
-        product: productId,
-        quantity,
-        price: product.price // Add the product price here
-      });
+      if (existingItemIndex > -1) {
+        // Update existing item quantity
+        cart.items[existingItemIndex].quantity += item.quantity;
+      } else {
+        // Add new item
+        cart.items.push({
+          product: item.productId,
+          quantity: item.quantity,
+          price: product.price
+        });
+      }
     }
 
     // Recalculate total
     cart.total = cart.items.reduce((total, item) => {
-      return total + (item.price * item.quantity);
+      const product = products.find(p => p._id.toString() === item.product.toString());
+      const itemPrice = product.discount?.isActive ? 
+        (product.discountedPrice || product.price) : 
+        product.price;
+      return total + (itemPrice * item.quantity);
     }, 0);
 
     await cart.save();
-
-    // Populate product details for response
     await cart.populate('items.product');
 
     res.json({
-      message: 'Item added to cart successfully',
-      cart
+      status: 'success',
+      message: 'Items added to cart successfully',
+      data: cart
     });
   } catch (error) {
     logger.error('Error in addToCart:', {
       error: error.message,
       stack: error.stack,
-      productId: req.body.productId
+      body: req.body
     });
-
-    // Handle specific timeout errors
-    if (error.name === 'MongooseError' && error.message.includes('buffering timed out')) {
-      return res.status(408).json({
-        status: 'error',
-        message: 'Request timed out. Please try again.'
-      });
-    }
 
     res.status(error.statusCode || 400).json({
       status: 'error',
