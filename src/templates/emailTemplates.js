@@ -340,3 +340,193 @@ export const getResetOTPTemplate = (fullName, otp) => {
     </html>
   `;
 };
+
+export const getPaymentInitiatedTemplate = (order, user) => {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        /* ...existing styles... */
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Payment Initiated</h1>
+        </div>
+        <div class="content">
+          <h2>Hello ${user.fullName}!</h2>
+          <p>Your payment for order #${order.orderNumber} has been initiated.</p>
+          
+          <div class="order-details">
+            ${order.items.map(item => `
+              <div class="order-item">
+                <img src="${item.product.imageUrl}" style="width: 50px; height: 50px; object-fit: cover;">
+                <span>${item.quantity}x ${item.product.name}</span>
+                <span>$${(item.price * item.quantity).toFixed(2)}</span>
+              </div>
+            `).join('')}
+            
+            <div class="total">
+              Total Amount: $${order.total.toFixed(2)}
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <p>This is an automated message, please do not reply.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+export const getPaymentSuccessTemplate = (order, user) => {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        /* ...existing styles... */
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Payment Successful!</h1>
+        </div>
+        <div class="content">
+          <h2>Thank you, ${user.fullName}!</h2>
+          <p>Your payment for order #${order.orderNumber} has been successfully processed.</p>
+          
+          <div class="order-details">
+            ${order.items.map(item => `
+              <div class="order-item">
+                <img src="${item.product.imageUrl}" style="width: 50px; height: 50px; object-fit: cover;">
+                <span>${item.quantity}x ${item.product.name}</span>
+                <span>$${(item.price * item.quantity).toFixed(2)}</span>
+              </div>
+            `).join('')}
+            
+            <div class="total">
+              Total Paid: $${order.total.toFixed(2)}
+            </div>
+          </div>
+
+          <a href="${process.env.FRONTEND_URL}/orders/${order._id}" class="button">Track Your Order</a>
+        </div>
+        <div class="footer">
+          <p>Thank you for choosing our service!</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+export const getPaymentFailedTemplate = (order, user) => {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        /* Use existing styles */
+        ${getCommonStyles()}
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header" style="background-color: #dc3545;">
+          <h1>Payment Failed</h1>
+        </div>
+        <div class="content">
+          <h2>Hello ${user.fullName},</h2>
+          <p>Unfortunately, the payment for your order #${order.orderNumber} was unsuccessful.</p>
+          
+          <div class="order-details">
+            ${order.items.map(item => `
+              <div class="order-item">
+                <img src="${item.product.imageUrl}" style="width: 50px; height: 50px; object-fit: cover;">
+                <span>${item.quantity}x ${item.product.name}</span>
+                <span>$${(item.price * item.quantity).toFixed(2)}</span>
+              </div>
+            `).join('')}
+            
+            <div class="total">
+              Total Amount: $${order.total.toFixed(2)}
+            </div>
+          </div>
+
+          <p style="color: #dc3545; font-weight: bold;">Please try again with a different payment method.</p>
+          
+          <a href="${process.env.FRONTEND_URL}/orders/${order._id}/payment" 
+             class="button" 
+             style="background-color: #dc3545;">
+            Try Payment Again
+          </a>
+
+          <p>If you continue to experience issues, please contact our support team.</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated message, please do not reply.</p>
+          <p>&copy; ${new Date().getFullYear()} Mimi's Kitchen. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+// Helper function for common styles
+const getCommonStyles = () => `
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+  }
+  .header {
+    color: white;
+    padding: 20px;
+    text-align: center;
+    border-radius: 5px 5px 0 0;
+  }
+  .content {
+    padding: 20px;
+    background-color: #ffffff;
+    border: 1px solid #dddddd;
+  }
+  .order-details {
+    margin: 20px 0;
+    border: 1px solid #dddddd;
+    padding: 15px;
+    border-radius: 5px;
+  }
+  .order-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #eeeeee;
+  }
+  .total {
+    font-weight: bold;
+    margin-top: 15px;
+    text-align: right;
+  }
+  .button {
+    display: inline-block;
+    padding: 10px 20px;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    margin: 20px 0;
+  }
+  .footer {
+    text-align: center;
+    padding: 20px;
+    color: #666666;
+    font-size: 12px;
+  }
+`;

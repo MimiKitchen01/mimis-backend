@@ -29,6 +29,11 @@ router.post('/create-payment-intent',
   paymentController.createPaymentSession
 );
 
+router.post('/confirm',
+  auth,
+  paymentController.confirmPayment
+);
+
 router.post('/webhook',
   express.raw({ type: 'application/json' }),
   paymentController.handlePaymentWebhook

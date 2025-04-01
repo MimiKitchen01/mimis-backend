@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { getOTPTemplate, getWelcomeTemplate } from '../templates/emailTemplates.js';
+import { getOTPTemplate, getWelcomeTemplate, getPaymentInitiatedTemplate, getPaymentSuccessTemplate, getPaymentFailedTemplate } from '../templates/emailTemplates.js';
 import logger from '../utils/logger.js';
 
 const transporter = nodemailer.createTransport({
@@ -67,6 +67,37 @@ export const sendWelcomeEmail = async (email, fullName) => {
     });
     // Don't throw error for welcome email as it's not critical
     logger.warn('Welcome email failed but continuing user flow');
+  }
+};
+
+export const sendPaymentEmail = async (type, order) => {
+  try {
+    const emailData = {
+      to: order.user.email,
+      subject: '',
+      html: ''
+    };
+
+    switch (type) {
+      case 'initiated':
+        emailData.subject = `Payment Initiated for Order #${order.orderNumber}`;
+        emailData.html = getPaymentInitiatedTemplate(order, order.user);
+        break;
+      case 'success':
+        emailData.subject = `Payment Successful for Order #${order.orderNumber}`;
+        emailData.html = getPaymentSuccessTemplate(order, order.user);
+        break;
+      case 'failed':
+        emailData.subject = `Payment Failed for Order #${order.orderNumber}`;
+        emailData.html = getPaymentFailedTemplate(order, order.user);
+        break;
+    }
+
+    await sendEmail(emailData);
+    logger.info(`Payment ${type} email sent to ${order.user.email}`);
+  } catch (error) {
+    logger.error(`Failed to send payment ${type} email:`, error);
+    // Don't throw error to prevent blocking payment flow
   }
 };
 

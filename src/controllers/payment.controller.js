@@ -1,4 +1,10 @@
 import * as paymentService from '../services/payment.service.js';
+import * as notificationService from '../services/notification.service.js';
+import * as emailService from '../services/email.service.js';
+import {
+  getPaymentInitiatedTemplate,
+  getPaymentSuccessTemplate
+} from '../templates/emailTemplates.js';
 import Order from '../models/order.model.js';
 import { ApiError } from '../middleware/error.middleware.js';
 import logger from '../utils/logger.js';
@@ -16,7 +22,7 @@ export const createPaymentSession = async (req, res) => {
     const order = await Order.findOne({
       _id: orderId,
       user: req.user.userId
-    }).populate('items.product');
+    }).populate(['items.product', 'user']);
 
     if (!order) {
       throw new ApiError(404, 'Order not found');
@@ -43,6 +49,13 @@ export const createPaymentSession = async (req, res) => {
       currency: 'usd'
     };
     await order.save();
+
+    // Send payment initiated email
+    await emailService.sendEmail({
+      to: order.user.email,
+      subject: `Payment Initiated for Order #${order.orderNumber}`,
+      html: getPaymentInitiatedTemplate(order, order.user)
+    });
 
     logger.info(chalk.green('✅ Payment session created:'), {
       orderId: chalk.cyan(order._id),
@@ -112,5 +125,68 @@ const handleFailedPayment = async (paymentIntent) => {
   if (order) {
     order.payment.paymentStatus = 'failed';
     await order.save();
+  }
+};
+
+export const confirmPayment = async (req, res) => {
+  try {
+    const { orderId, status } = req.body;
+
+    const order = await Order.findOne({
+      _id: orderId,
+      user: req.user.userId
+    }).populate(['items.product', 'user']);
+
+    if (!order) {
+      throw new ApiError(404, 'Order not found');
+    }
+
+    // Initialize payment object if it doesn't exist
+    if (!order.payment) {
+      order.payment = {};
+    }
+
+    // Update order status and save
+    order.payment = {
+      ...order.payment,
+      paymentStatus: status,
+      paidAt: new Date()
+    };
+    order.status = 'confirmed';
+    
+    await order.save();
+
+    try {
+      // Send success notification and email
+      await Promise.all([
+        notificationService.createNotification({
+          user: order.user,
+          title: 'Payment Successful',
+          message: `Your payment for order #${order.orderNumber} was successful.`,
+          type: 'payment',
+          orderId: order._id
+        }),
+        emailService.sendEmail({
+          to: order.user.email,
+          subject: `Payment Successful for Order #${order.orderNumber}`,
+          html: getPaymentSuccessTemplate(order, order.user)
+        })
+      ]);
+    } catch (notifError) {
+      // Log notification error but don't fail the payment confirmation
+      logger.error('Failed to create payment notification:', notifError);
+    }
+
+    res.json({
+      status: 'success',
+      message: 'Payment confirmed successfully',
+      order
+    });
+  } catch (error) {
+    logger.error('Payment confirmation failed:', error);
+    res.status(error.statusCode || 500).json({
+      status: 'error',
+      message: error.message
+    });
   }
 };
