@@ -37,25 +37,26 @@ export const addToCart = async (req, res) => {
       }
     });
 
-    // Get all products at once
+    // Get all products at once and create a Map for easier lookup
     const productIds = items.map(item => item.productId);
     const products = await Product.find({ _id: { $in: productIds } });
+    const productsMap = new Map(products.map(p => [p._id.toString(), p]));
 
     // Check if all products exist and are available
+    const missingProducts = [];
     const unavailableProducts = [];
-    const notFoundProducts = [];
-    
+
     productIds.forEach(id => {
-      const product = products.find(p => p._id.toString() === id);
+      const product = productsMap.get(id);
       if (!product) {
-        notFoundProducts.push(id);
+        missingProducts.push(id);
       } else if (!product.isAvailable) {
         unavailableProducts.push(product.name);
       }
     });
 
-    if (notFoundProducts.length > 0) {
-      throw new ApiError(404, `Products not found: ${notFoundProducts.join(', ')}`);
+    if (missingProducts.length > 0) {
+      throw new ApiError(404, `Products not found: ${missingProducts.join(', ')}`);
     }
 
     if (unavailableProducts.length > 0) {
@@ -71,34 +72,27 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    // Process each item
-    for (const item of items) {
-      const product = products.find(p => p._id.toString() === item.productId);
-      
-      // Find if product already exists in cart
-      const existingItemIndex = cart.items.findIndex(
-        cartItem => cartItem.product.toString() === item.productId
-      );
+    // Clear existing items that are being updated
+    cart.items = cart.items.filter(item => 
+      !items.some(newItem => newItem.productId === item.product.toString())
+    );
 
-      if (existingItemIndex > -1) {
-        // Update existing item quantity
-        cart.items[existingItemIndex].quantity += item.quantity;
-      } else {
-        // Add new item
-        cart.items.push({
-          product: item.productId,
-          quantity: item.quantity,
-          price: product.price
-        });
-      }
+    // Add new items
+    for (const item of items) {
+      const product = productsMap.get(item.productId);
+      cart.items.push({
+        product: item.productId,
+        quantity: item.quantity,
+        price: product.price
+      });
     }
 
-    // Recalculate total
+    // Calculate total using the productsMap
     cart.total = cart.items.reduce((total, item) => {
-      const product = products.find(p => p._id.toString() === item.product.toString());
-      const itemPrice = product.discount?.isActive ? 
-        (product.discountedPrice || product.price) : 
-        product.price;
+      const product = productsMap.get(item.product.toString());
+      const itemPrice = product.discount?.isActive
+        ? (product.price * (1 - product.discount.value / 100))
+        : product.price;
       return total + (itemPrice * item.quantity);
     }, 0);
 
