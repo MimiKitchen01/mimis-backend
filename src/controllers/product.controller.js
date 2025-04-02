@@ -443,10 +443,30 @@ export const updateProductDiscount = async (req, res) => {
 
 export const getRandomProducts = async (req, res) => {
   try {
-    logger.info('Getting random products');
+    const { category, tags, isPopular, search } = req.query;
+    logger.info('Getting random products with filters:', { category, tags, isPopular, search });
+
+    // Build match condition
+    const matchCondition = { isAvailable: true };
+
+    if (category) {
+      matchCondition.category = category;
+    }
+    if (tags) {
+      matchCondition.tags = { $in: tags.split(',') };
+    }
+    if (isPopular === 'true') {
+      matchCondition.isPopular = true;
+    }
+    if (search) {
+      matchCondition.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
 
     const products = await Product.aggregate([
-      { $match: { isAvailable: true } },
+      { $match: matchCondition },
       { $sample: { size: 6 } },
       {
         $project: {
@@ -456,6 +476,7 @@ export const getRandomProducts = async (req, res) => {
           imageUrl: 1,
           category: 1,
           isPopular: 1,
+          tags: 1,
           ratings: 1,
           discountedPrice: 1,
           discount: 1
@@ -466,7 +487,8 @@ export const getRandomProducts = async (req, res) => {
     res.json({
       status: 'success',
       count: products.length,
-      data: products
+      data: products,
+      filters: { category, tags, isPopular, search }
     });
   } catch (error) {
     logger.error('Error getting random products:', error);
@@ -479,19 +501,40 @@ export const getRandomProducts = async (req, res) => {
 
 export const getMostOrderedProducts = async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 6;
+    const { category, tags, isPopular, search, limit = 6 } = req.query;
     
-    logger.info(`Getting top ${limit} most ordered products`);
+    logger.info('Getting most ordered products with filters:', {
+      category, tags, isPopular, search, limit
+    });
+
+    // Build match condition
+    const matchCondition = { isAvailable: true };
+
+    if (category) {
+      matchCondition.category = category;
+    }
+    if (tags) {
+      matchCondition.tags = { $in: tags.split(',') };
+    }
+    if (isPopular === 'true') {
+      matchCondition.isPopular = true;
+    }
+    if (search) {
+      matchCondition.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
 
     const products = await Product.aggregate([
-      { $match: { isAvailable: true } },
+      { $match: matchCondition },
       {
         $sort: { 
           orderCount: -1,
           'ratings.average': -1
         }
       },
-      { $limit: limit },
+      { $limit: parseInt(limit) },
       {
         $project: {
           name: 1,
@@ -500,9 +543,11 @@ export const getMostOrderedProducts = async (req, res) => {
           imageUrl: 1,
           category: 1,
           orderCount: 1,
+          tags: 1,
           ratings: 1,
           discount: 1,
-          discountedPrice: 1
+          discountedPrice: 1,
+          isPopular: 1
         }
       }
     ]);
@@ -510,7 +555,8 @@ export const getMostOrderedProducts = async (req, res) => {
     res.json({
       status: 'success',
       count: products.length,
-      data: products
+      data: products,
+      filters: { category, tags, isPopular, search, limit }
     });
   } catch (error) {
     logger.error('Error getting most ordered products:', error);
