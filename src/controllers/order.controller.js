@@ -80,6 +80,10 @@ export const addToCart = async (req, res) => {
     // Add new items
     for (const item of items) {
       const product = productsMap.get(item.productId);
+      if (!product) {
+        throw new ApiError(404, `Product ${item.productId} not found`);
+      }
+      
       cart.items.push({
         product: item.productId,
         quantity: item.quantity,
@@ -87,12 +91,28 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    // Calculate total using the productsMap
+    // Calculate total using the productsMap with safe discount check
     cart.total = cart.items.reduce((total, item) => {
       const product = productsMap.get(item.product.toString());
-      const itemPrice = product.discount?.isActive
-        ? (product.price * (1 - product.discount.value / 100))
-        : product.price;
+      if (!product) {
+        throw new ApiError(404, `Product ${item.product} not found`);
+      }
+
+      let itemPrice = product.price;
+      
+      // Safely check for discount
+      if (product.discount && 
+          product.discount.isActive && 
+          product.discount.type && 
+          product.discount.value) {
+        // Calculate discounted price
+        if (product.discount.type === 'percentage') {
+          itemPrice = product.price * (1 - (product.discount.value / 100));
+        } else if (product.discount.type === 'fixed') {
+          itemPrice = Math.max(0, product.price - product.discount.value);
+        }
+      }
+
       return total + (itemPrice * item.quantity);
     }, 0);
 
