@@ -1,20 +1,29 @@
 import mongoose from 'mongoose';
-import { PRODUCT_CATEGORIES, SPICY_LEVELS } from '../constants/index.js';
+import { PRODUCT_CATEGORIES } from '../constants/index.js';
 
 const productSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true,
+    required: [true, 'Product name is required'],
     trim: true
-  },
-  description: {
-    type: String,
-    required: true
   },
   price: {
     type: Number,
-    required: true,
-    min: 0
+    required: [true, 'Product price is required'],
+    min: [0, 'Price cannot be negative']
+  },
+  category: {
+    type: String,
+    required: [true, 'Product category is required'],
+    enum: PRODUCT_CATEGORIES
+  },
+  imageUrl: {
+    type: String,
+    required: [true, 'Product image is required']
+  },
+  description: {
+    type: String,
+    default: ''
   },
   preparationTime: {
     type: Number,
@@ -33,7 +42,6 @@ const productSchema = new mongoose.Schema({
   }],
   spicyLevel: {
     type: String,
-    enum: SPICY_LEVELS,
     default: 'Not Spicy'
   },
   allergens: [{
@@ -42,15 +50,6 @@ const productSchema = new mongoose.Schema({
   dietaryInfo: [{
     type: String
   }],
-  category: {
-    type: String,
-    required: true,
-    enum: PRODUCT_CATEGORIES
-  },
-  imageUrl: {
-    type: String,
-    required: true
-  },
   additionalImages: [{
     type: String
   }],
@@ -93,22 +92,18 @@ const productSchema = new mongoose.Schema({
     type: {
       type: String,
       enum: ['percentage', 'fixed', null],
-      default: null,
-      required: false
+      default: null
     },
     value: {
       type: Number,
       min: 0,
-      default: 0,
-      required: false
+      default: 0
     },
     startDate: {
-      type: Date,
-      required: false
+      type: Date
     },
     endDate: {
-      type: Date,
-      required: false
+      type: Date
     },
     isActive: {
       type: Boolean,

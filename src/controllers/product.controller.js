@@ -8,103 +8,35 @@ import * as imageService from '../services/image.service.js';
 
 export const createProduct = async (req, res) => {
   try {
-    logger.info('Product creation request:', {
-      body: req.body,
-      files: req.files
-    });
-
-    // Validate admin role
+    // Check admin authorization
     if (req.user.role !== 'admin') {
       throw new ApiError(403, 'Only admins can create products');
     }
 
-    // Validate at least one image
-    if (!req.files || req.files.length === 0) {
-      throw new ApiError(400, 'At least one image is required');
-    }
-
-    // Validate and upload all images
-    const imageUrls = await Promise.all(
-      req.files.map(file => imageService.uploadImage(file, req.user.userId, 'product'))
-    );
-
-    // Parse form data with validation
-    const productData = {
-      // Required fields
-      name: req.body.name,
-      description: req.body.description,
-      price: parseFloat(req.body.price),
-      category: req.body.category,
-      imageUrl: imageUrls[0],
-      additionalImages: imageUrls.slice(1),
-
-      // Optional fields with defaults
-      isAvailable: req.body.isAvailable === 'true',
-      isPopular: req.body.isPopular === 'true',
-      isSpecial: req.body.isSpecial === 'true',
-
-      // Optional fields that need parsing
-      ...(req.body.preparationTime && {
-        preparationTime: parseInt(req.body.preparationTime)
-      }),
-      ...(req.body.ingredients && {
-        ingredients: JSON.parse(req.body.ingredients)
-      }),
-      ...(req.body.allergens && {
-        allergens: JSON.parse(req.body.allergens)
-      }),
-      ...(req.body.dietaryInfo && {
-        dietaryInfo: JSON.parse(req.body.dietaryInfo)
-      }),
-      ...(req.body.customizationOptions && {
-        customizationOptions: JSON.parse(req.body.customizationOptions)
-      }),
-      ...(req.body.spicyLevel && {
-        spicyLevel: req.body.spicyLevel
-      })
-    };
-
-    // Handle discount data if provided
-    if (req.body.discount) {
-      try {
-        const discountData = JSON.parse(req.body.discount);
-        if (discountData.type && discountData.value) {
-          productData.discount = {
-            type: discountData.type,
-            value: parseFloat(discountData.value),
-            isActive: discountData.isActive === true,
-            ...(discountData.startDate && { startDate: new Date(discountData.startDate) }),
-            ...(discountData.endDate && { endDate: new Date(discountData.endDate) })
-          };
-        }
-      } catch (error) {
-        logger.warn('Invalid discount data format:', error);
-      }
-    }
-
-    // Add nutrition info if any field is provided
-    const nutritionFields = ['calories', 'protein', 'carbohydrates', 'fats', 'fiber'];
-    const hasNutrition = nutritionFields.some(field => req.body[field]);
-    
-    if (hasNutrition) {
-      productData.nutritionInfo = {};
-      nutritionFields.forEach(field => {
-        if (req.body[field]) {
-          productData.nutritionInfo[field] = parseFloat(req.body[field]);
-        }
-      });
-    }
-
-    // Validate required fields only
-    const requiredFields = ['name', 'description', 'price', 'category'];
-    const missingFields = requiredFields.filter(field => !productData[field]);
+    // Validate required fields
+    const requiredFields = ['name', 'price', 'category'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
 
     if (missingFields.length > 0) {
       throw new ApiError(400, `Missing required fields: ${missingFields.join(', ')}`);
     }
 
-    // Debug log parsed data
-    logger.info('Parsed product data:', productData);
+    if (!req.files || req.files.length === 0) {
+      throw new ApiError(400, 'Product image is required');
+    }
+
+    // Create product with only required fields
+    const productData = {
+      name: req.body.name,
+      price: parseFloat(req.body.price),
+      category: req.body.category,
+      imageUrl: req.files[0].location // Main image
+    };
+
+    // Optional: Add additional images if provided
+    if (req.files.length > 1) {
+      productData.additionalImages = req.files.slice(1).map(file => file.location);
+    }
 
     const product = await Product.create(productData);
     
@@ -114,21 +46,7 @@ export const createProduct = async (req, res) => {
       data: product
     });
   } catch (error) {
-    logger.error('Error in createProduct:', {
-      error: error.message,
-      stack: error.stack,
-      body: req.body,
-      files: req.files
-    });
-
-    // Handle JSON parse errors
-    if (error instanceof SyntaxError) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Invalid JSON format in one of the fields'
-      });
-    }
-
+    logger.error('Error in createProduct:', error);
     res.status(error.statusCode || 400).json({
       status: 'error',
       message: error.message
@@ -212,22 +130,20 @@ export const getProduct = async (req, res) => {
 
 export const updateProduct = async (req, res, next) => {
   try {
-    // Validate admin role
     if (req.user.role !== 'admin') {
       throw new ApiError(403, 'Only admins can update products');
     }
 
-    let updateData = { ...req.body };
+    // Convert form data to appropriate types
+    const updateData = {
+      ...req.body,
+      price: req.body.price ? parseFloat(req.body.price) : undefined,
+      isAvailable: req.body.isAvailable === 'true',
+      isPopular: req.body.isPopular === 'true',
+      isSpecial: req.body.isSpecial === 'true'
+    };
 
-    // Handle files if included
-    if (req.files?.length) {
-      updateData.imageUrl = req.files[0].location;
-      if (req.files.length > 1) {
-        updateData.additionalImages = req.files.slice(1).map(file => file.location);
-      }
-    }
-
-    // Parse JSON fields
+    // Parse JSON fields if they exist
     const jsonFields = ['ingredients', 'allergens', 'dietaryInfo', 'customizationOptions'];
     jsonFields.forEach(field => {
       if (updateData[field]) {
@@ -239,7 +155,7 @@ export const updateProduct = async (req, res, next) => {
       }
     });
 
-    // Handle discount updates
+    // Handle discount if provided
     if (updateData.discount) {
       try {
         const discountData = JSON.parse(updateData.discount);
@@ -256,33 +172,37 @@ export const updateProduct = async (req, res, next) => {
       }
     }
 
-    // Remove discount if requested
-    if (updateData.removeDiscount === 'true') {
-      updateData.discount = {
-        type: null,
-        value: 0,
-        isActive: false,
-        startDate: null,
-        endDate: null
-      };
-    }
+    // Remove undefined and null values
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined || updateData[key] === null) {
+        delete updateData[key];
+      }
+    });
 
-    const product = await Product.findByIdAndUpdate(
+    const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
-      updateData,
-      { new: true, runValidators: true }
+      { $set: updateData },
+      { 
+        new: true, // Return updated document
+        runValidators: true // Run schema validators
+      }
     );
 
-    if (!product) {
+    if (!updatedProduct) {
       throw new ApiError(404, 'Product not found');
     }
 
     res.json({
       status: 'success',
       message: 'Product updated successfully',
-      data: product
+      data: updatedProduct
     });
   } catch (error) {
+    logger.error('Error updating product:', {
+      error: error.message,
+      productId: req.params.id,
+      updateData: req.body
+    });
     next(error);
   }
 };

@@ -314,7 +314,55 @@ router.patch('/:id/toggle-availability', auth, adminAuth, productController.togg
  */
 router.patch('/:id/mark-popular', auth, adminAuth, productController.markProductAsPopular);
 
+/**
+ * @swagger
+ * /api/products/{id}:
+ *   patch:
+ *     summary: Update any product field
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               category:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               isAvailable:
+ *                 type: boolean
+ *               isPopular:
+ *                 type: boolean
+ *               spicyLevel:
+ *                 type: string
+ *               ingredients:
+ *                 type: string
+ *                 format: json
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *               discount:
+ *                 type: string
+ *                 format: json
+ *                 example: '{"type":"percentage","value":10,"isActive":true}'
+ */
 router.patch('/:id', auth, productController.updateProduct);
+
 router.delete('/:id', auth, productController.deleteProduct);
 
 /**
