@@ -559,3 +559,83 @@ export const updateAdminProfileImage = async (req, res) => {
     res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
+
+export const getOrderDetails = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    logger.info(chalk.blue('👀 Admin fetching order details:'), 
+      chalk.cyan(orderId)
+    );
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      throw new ApiError(400, 'Invalid order ID format');
+    }
+
+    const order = await Order.findById(orderId)
+      .populate([
+        { 
+          path: 'user',
+          select: 'fullName email phoneNumber'
+        },
+        {
+          path: 'items.product',
+          select: 'name price imageUrl category'
+        },
+        'deliveryAddress'
+      ]);
+
+    if (!order) {
+      throw new ApiError(404, 'Order not found');
+    }
+
+    res.json({
+      status: 'success',
+      data: {
+        order,
+        customer: {
+          name: order.user.fullName,
+          email: order.user.email,
+          phone: order.user.phoneNumber
+        },
+        items: order.items.map(item => ({
+          product: {
+            id: item.product._id,
+            name: item.product.name,
+            price: item.product.price,
+            image: item.product.imageUrl
+          },
+          quantity: item.quantity,
+          subtotal: item.price * item.quantity
+        })),
+        delivery: {
+          address: order.deliveryAddress,
+          estimatedTime: order.estimatedDeliveryTime,
+          actualDeliveryTime: order.actualDeliveryTime
+        },
+        payment: {
+          status: order.paymentStatus,
+          details: order.paymentDetails
+        },
+        timeline: order.statusHistory,
+        totals: {
+          subtotal: order.total,
+          deliveryFee: 0, // Add if you have delivery fee
+          total: order.total
+        }
+      }
+    });
+
+  } catch (error) {
+    logger.error(chalk.red('❌ Error fetching order details:'), {
+      error: error.message,
+      orderId: req.params.orderId
+    });
+
+    res.status(error.statusCode || 500).json({
+      status: 'error',
+      message: error.message
+    });
+  }
+};

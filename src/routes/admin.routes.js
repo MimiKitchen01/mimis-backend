@@ -532,6 +532,23 @@ router.post('/profile-image',
   adminController.updateAdminProfileImage
 );
 
+/**
+ * @swagger
+ * /api/admin/orders/{orderId}:
+ *   get:
+ *     summary: Get order details by ID (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ */
+router.get('/orders/:orderId', auth, adminAuth, adminController.getOrderDetails);
+
 // Add this new test endpoint
 router.post('/test-upload',
   auth,
