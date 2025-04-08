@@ -134,74 +134,61 @@ export const updateProduct = async (req, res, next) => {
       throw new ApiError(403, 'Only admins can update products');
     }
 
-    // Convert form data to appropriate types
-    const updateData = {
-      ...req.body,
-      price: req.body.price ? parseFloat(req.body.price) : undefined,
-      isAvailable: req.body.isAvailable === 'true',
-      isPopular: req.body.isPopular === 'true',
-      isSpecial: req.body.isSpecial === 'true'
-    };
-
-    // Parse JSON fields if they exist
-    const jsonFields = ['ingredients', 'allergens', 'dietaryInfo', 'customizationOptions'];
-    jsonFields.forEach(field => {
-      if (updateData[field]) {
-        try {
-          updateData[field] = JSON.parse(updateData[field]);
-        } catch (error) {
-          logger.warn(`Invalid JSON for field ${field}:`, error);
-        }
-      }
+    logger.info('Update request:', {
+      id: req.params.id,
+      body: req.body
     });
 
-    // Handle discount if provided
-    if (updateData.discount) {
-      try {
-        const discountData = JSON.parse(updateData.discount);
-        updateData.discount = {
-          type: discountData.type,
-          value: parseFloat(discountData.value),
-          isActive: discountData.isActive === true,
-          ...(discountData.startDate && { startDate: new Date(discountData.startDate) }),
-          ...(discountData.endDate && { endDate: new Date(discountData.endDate) })
-        };
-      } catch (error) {
-        logger.warn('Invalid discount data format:', error);
-        delete updateData.discount;
-      }
+    // Basic validation
+    if (!req.params.id) {
+      throw new ApiError(400, 'Product ID is required');
     }
 
-    // Remove undefined and null values
-    Object.keys(updateData).forEach(key => {
-      if (updateData[key] === undefined || updateData[key] === null) {
-        delete updateData[key];
-      }
-    });
+    // Get existing product
+    const existingProduct = await Product.findById(req.params.id);
+    if (!existingProduct) {
+      throw new ApiError(404, 'Product not found');
+    }
 
+    // Create update object from form-data
+    const updateData = {};
+
+    // Handle basic fields
+    if (req.body.name) updateData.name = req.body.name.trim();
+    if (req.body.price) updateData.price = Number(req.body.price);
+    if (req.body.category) updateData.category = req.body.category;
+    if (req.body.description !== undefined) updateData.description = req.body.description;
+    if (req.body.spicyLevel) updateData.spicyLevel = req.body.spicyLevel;
+    if (req.body.preparationTime) updateData.preparationTime = Number(req.body.preparationTime);
+
+    // Handle boolean fields
+    if (req.body.isAvailable !== undefined) {
+      updateData.isAvailable = req.body.isAvailable === 'true';
+    }
+    if (req.body.isPopular !== undefined) {
+      updateData.isPopular = req.body.isPopular === 'true';
+    }
+
+    logger.info('Processed update data:', updateData);
+
+    // Update the product
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
       { $set: updateData },
-      { 
-        new: true, // Return updated document
-        runValidators: true // Run schema validators
-      }
+      { new: true, runValidators: true }
     );
-
-    if (!updatedProduct) {
-      throw new ApiError(404, 'Product not found');
-    }
 
     res.json({
       status: 'success',
       message: 'Product updated successfully',
       data: updatedProduct
     });
+
   } catch (error) {
     logger.error('Error updating product:', {
       error: error.message,
       productId: req.params.id,
-      updateData: req.body
+      body: req.body
     });
     next(error);
   }

@@ -3,6 +3,8 @@ import * as productController from '../controllers/product.controller.js';
 import { uploadProductImages } from '../middleware/upload.middleware.js'; // Changed from uploadToS3
 import auth from '../middleware/auth.js';
 import { adminAuth } from '../middleware/admin.middleware.js';
+import multer from 'multer';
+const upload = multer();
 
 /**
  * @swagger
@@ -361,7 +363,12 @@ router.patch('/:id/mark-popular', auth, adminAuth, productController.markProduct
  *                 format: json
  *                 example: '{"type":"percentage","value":10,"isActive":true}'
  */
-router.patch('/:id', auth, productController.updateProduct);
+router.patch('/:id', 
+  auth, 
+  adminAuth,
+  upload.none(), // Add multer middleware to parse form-data without files
+  productController.updateProduct
+);
 
 router.delete('/:id', auth, productController.deleteProduct);
 
