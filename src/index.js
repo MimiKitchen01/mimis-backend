@@ -83,7 +83,7 @@ mongoose.connect(process.env.MONGODB_URI)
 
 // Start server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT,'0.0.0.0', () => {
   logger.info(chalk.green.bold('🚀 Server is running on port:'), chalk.blue(PORT));
   logger.info(chalk.cyan('📚 API Documentation:'), chalk.underline(`http://localhost:${PORT}/api-docs`));
 });
