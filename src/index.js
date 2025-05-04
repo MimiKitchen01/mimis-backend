@@ -12,6 +12,7 @@ import { addressRouter } from './routes/address.routes.js';
 import productRoutes from './routes/product.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import orderRoutes from './routes/order.routes.js';
+import reviewRoutes from './routes/review.routes.js';
 import swaggerSpec from './config/swagger.config.js';
 import { requestLogger } from './middleware/logging.middleware.js';
 import passport from 'passport';
@@ -58,6 +59,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 // Error handling
 
@@ -82,7 +84,7 @@ mongoose.connect(process.env.MONGODB_URI)
   .catch((error) => console.error('MongoDB connection error:', error));
 
 // Start server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 80;
 app.listen(PORT,'0.0.0.0', () => {
   logger.info(chalk.green.bold('🚀 Server is running on port:'), chalk.blue(PORT));
   logger.info(chalk.cyan('📚 API Documentation:'), chalk.underline(`http://localhost:${PORT}/api-docs`));

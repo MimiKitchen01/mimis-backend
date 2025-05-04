@@ -63,7 +63,12 @@ const orderSchema = new mongoose.Schema({
   statusHistory: [{
     status: {
       type: String,
-      enum: Object.values(ORDER_STATUS)
+      enum: [
+        ...Object.values(ORDER_STATUS),
+        'payment_pending',
+        'payment_completed',
+        'payment_failed'
+      ]
     },
     updatedBy: {
       type: mongoose.Schema.Types.ObjectId,

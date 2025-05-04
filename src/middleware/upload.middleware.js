@@ -218,6 +218,31 @@ export const uploadProductImages = (req, res, next) => {
   });
 };
 
+// Configure S3 for review images
+export const uploadReviewImages = multer({
+  storage: multerS3({
+    s3: s3Client,
+    bucket: process.env.AWS_BUCKET_NAME,
+    metadata: function (req, file, cb) {
+      cb(null, { fieldName: file.fieldname });
+    },
+    key: function (req, file, cb) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, `reviews/${req.user.userId}/${uniqueSuffix}-${file.originalname}`);
+    }
+  }),
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new ApiError(400, 'Only image files are allowed'), false);
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB
+  }
+});
+
 // Helper function for image URLs
 export const formatImageUrls = (files) => {
   if (!files || files.length === 0) {

@@ -639,3 +639,32 @@ export const getOrderDetails = async (req, res) => {
     });
   }
 };
+
+export const updateOrderPaymentStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { paymentStatus } = req.body;
+
+    if (!['pending', 'completed', 'failed'].includes(paymentStatus)) {
+      throw new ApiError(400, 'Invalid payment status');
+    }
+
+    const order = await orderService.updatePaymentStatus(
+      orderId, 
+      paymentStatus, 
+      req.user.userId
+    );
+
+    res.json({
+      status: 'success',
+      message: 'Payment status updated successfully',
+      data: order
+    });
+  } catch (error) {
+    logger.error('Error updating payment status:', error);
+    res.status(error.statusCode || 500).json({
+      status: 'error',
+      message: error.message
+    });
+  }
+};

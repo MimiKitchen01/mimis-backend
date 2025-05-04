@@ -165,6 +165,11 @@ export const updateOrderStatus = async (orderId, status, adminId) => {
   // Validate status transition
   validateStatusTransition(order.status, status);
 
+  // Update payment status when order is confirmed
+  if (status === ORDER_STATUS.CONFIRMED && order.paymentStatus === PAYMENT_STATUS.PENDING) {
+    order.paymentStatus = PAYMENT_STATUS.COMPLETED;
+  }
+
   order.status = status;
   order.statusHistory.push({
     status,
@@ -173,20 +178,43 @@ export const updateOrderStatus = async (orderId, status, adminId) => {
   });
 
   await order.save();
-
-  // Send notifications based on status change
   await sendOrderStatusNotification(order);
 
-  // Create notification for status update
-  await notificationService.createNotification({
-    user: order.user,
-    title: 'Order Status Updated',
-    message: `Your order #${order.orderNumber} is now ${status}.`,
-    type: 'order',
-    orderId: order._id
+  return order.populate(['items.product', 'deliveryAddress', 'user']);
+};
+
+// Add new function for payment status update
+export const updatePaymentStatus = async (orderId, paymentStatus, adminId) => {
+  const order = await Order.findById(orderId);
+  if (!order) {
+    throw new ApiError(404, 'Order not found');
+  }
+
+  // Map payment status to history status
+  const historyStatus = `payment_${paymentStatus}`;
+  
+  // Update payment status
+  order.paymentStatus = paymentStatus;
+  
+  // Add to status history
+  order.statusHistory.push({
+    status: order.status, // Keep the current order status
+    updatedBy: adminId,
+    timestamp: new Date()
   });
 
-  return order.populate(['items.product', 'deliveryAddress', 'user']);
+  // If payment is completed and order is pending, automatically confirm it
+  if (paymentStatus === PAYMENT_STATUS.COMPLETED && order.status === ORDER_STATUS.PENDING) {
+    order.status = ORDER_STATUS.CONFIRMED;
+    order.statusHistory.push({
+      status: ORDER_STATUS.CONFIRMED,
+      updatedBy: adminId,
+      timestamp: new Date()
+    });
+  }
+
+  await order.save();
+  return order;
 };
 
 // Helper functions

@@ -549,22 +549,38 @@ router.post('/profile-image',
  */
 router.get('/orders/:orderId', auth, adminAuth, adminController.getOrderDetails);
 
-// Add this new test endpoint
-router.post('/test-upload',
+/**
+ * @swagger
+ * /api/admin/orders/{orderId}/payment-status:
+ *   patch:
+ *     summary: Update order payment status (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - paymentStatus
+ *             properties:
+ *               paymentStatus:
+ *                 type: string
+ *                 enum: [pending, completed, failed]
+ */
+router.patch(
+  '/orders/:orderId/payment-status',
   auth,
   adminAuth,
-  uploadSingleImage,
-  (req, res) => {
-    res.json({
-      message: 'Test upload successful',
-      file: {
-        location: req.file.location,
-        mimetype: req.file.mimetype,
-        size: req.file.size,
-        key: req.file.key
-      }
-    });
-  }
+  adminController.updateOrderPaymentStatus
 );
 
 export default router;

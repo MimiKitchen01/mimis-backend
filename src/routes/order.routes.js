@@ -348,4 +348,35 @@ router.get('/:id', auth, (req, res, next) => {
  */
 router.post('/pay', auth, orderController.processPayment);
 
+/**
+ * @swagger
+ * /api/orders/{orderId}/confirm-delivery:
+ *   post:
+ *     summary: User confirms order delivery
+ *     tags: [Orders]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Delivery confirmed successfully
+ */
+router.post('/:orderId/confirm-delivery', auth, orderController.confirmDelivery);
+
+/**
+ * @swagger
+ * /api/orders/reviewable-products:
+ *   get:
+ *     summary: Get products available for review
+ *     tags: [Orders]
+ *     security:
+ *       - BearerAuth: []
+ */
+router.get('/reviewable-products', auth, orderController.getReviewableProducts);
+
 export default router;

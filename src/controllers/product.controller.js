@@ -5,6 +5,8 @@ import Product from '../models/product.model.js';
 import logger from '../utils/logger.js';
 import chalk from 'chalk'; // Add chalk import
 import * as imageService from '../services/image.service.js';
+import Review from '../models/review.model.js';
+import mongoose from 'mongoose';
 
 export const createProduct = async (req, res) => {
   try {
@@ -105,20 +107,88 @@ export const getAllProducts = async (req, res) => {
 
 export const getProduct = async (req, res) => {
   try {
-    logger.info('Getting product details:', {
-      productId: req.params.id
+    logger.info(chalk.blue('🔍 Getting product details:'), {
+      productId: chalk.cyan(req.params.id)
     });
 
-    const product = await productService.getProductById(req.params.id);
-    
-    res.json({
-      message: 'Product retrieved successfully',
-      product
+    // Get product with reviews
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      throw new ApiError(404, 'Product not found');
+    }
+
+    // Get reviews with pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const [reviews, reviewStats, totalReviews] = await Promise.all([
+      Review.find({ product: req.params.id })
+        .populate('user', 'fullName imageUrl')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Review.aggregate([
+        { $match: { product: new mongoose.Types.ObjectId(req.params.id) } },
+        {
+          $group: {
+            _id: null,
+            averageRating: { $avg: '$rating' },
+            totalReviews: { $sum: 1 },
+            ratingCounts: {
+              $push: '$rating'
+            }
+          }
+        }
+      ]),
+      Review.countDocuments({ product: req.params.id })
+    ]);
+
+    // Calculate rating distribution
+    const ratingDistribution = reviewStats.length > 0 ? {
+      1: reviewStats[0].ratingCounts.filter(r => r === 1).length,
+      2: reviewStats[0].ratingCounts.filter(r => r === 2).length,
+      3: reviewStats[0].ratingCounts.filter(r => r === 3).length,
+      4: reviewStats[0].ratingCounts.filter(r => r === 4).length,
+      5: reviewStats[0].ratingCounts.filter(r => r === 5).length,
+    } : { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+
+    const response = {
+      status: 'success',
+      data: {
+        product: {
+          ...product.toObject(),
+          reviews: {
+            items: reviews,
+            pagination: {
+              total: totalReviews,
+              page,
+              pages: Math.ceil(totalReviews / limit),
+              hasMore: page < Math.ceil(totalReviews / limit)
+            },
+            stats: {
+              averageRating: reviewStats.length > 0 ? 
+                Math.round(reviewStats[0].averageRating * 10) / 10 : 0,
+              totalReviews,
+              distribution: ratingDistribution
+            }
+          }
+        }
+      }
+    };
+
+    logger.info(chalk.green('✅ Product retrieved successfully:'), {
+      productId: chalk.cyan(req.params.id),
+      reviewCount: chalk.yellow(totalReviews)
     });
+
+    res.json(response);
   } catch (error) {
-    logger.error('Error getting product:', {
+    logger.error(chalk.red('❌ Error getting product:'), {
       error: error.message,
-      productId: req.params.id
+      productId: req.params.id,
+      stack: error.stack
     });
 
     res.status(error.statusCode || 404).json({ 

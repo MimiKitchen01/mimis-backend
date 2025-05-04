@@ -1,8 +1,10 @@
 import * as orderService from '../services/order.service.js';
 import * as cartService from '../services/cart.service.js';
+import * as notificationService from '../services/notification.service.js'; // Add this import
 import Cart from '../models/cart.model.js'; // Changed from named import to default import
 import Product from '../models/product.model.js';
 import Order from '../models/order.model.js'; // Changed from named import to default import
+import Review from '../models/review.model.js'; // New import for Review model
 import { ApiError } from '../middleware/error.middleware.js';
 import logger from '../utils/logger.js';
 import chalk from 'chalk';
@@ -42,7 +44,7 @@ export const addToCart = async (req, res) => {
     const products = await Product.find({ _id: { $in: productIds } });
     const productsMap = new Map(products.map(p => [p._id.toString(), p]));
 
-    // Check if all products exist and are available
+    // Validate products
     const missingProducts = [];
     const unavailableProducts = [];
 
@@ -72,40 +74,25 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    // Clear existing items that are being updated
-    cart.items = cart.items.filter(item => 
-      !items.some(newItem => newItem.productId === item.product.toString())
-    );
+    // Clear all existing items from cart
+    cart.items = [];
 
     // Add new items
-    for (const item of items) {
+    items.forEach(item => {
       const product = productsMap.get(item.productId);
-      if (!product) {
-        throw new ApiError(404, `Product ${item.productId} not found`);
-      }
-      
       cart.items.push({
         product: item.productId,
         quantity: item.quantity,
         price: product.price
       });
-    }
+    });
 
     // Calculate total using the productsMap with safe discount check
     cart.total = cart.items.reduce((total, item) => {
       const product = productsMap.get(item.product.toString());
-      if (!product) {
-        throw new ApiError(404, `Product ${item.product} not found`);
-      }
-
       let itemPrice = product.price;
       
-      // Safely check for discount
-      if (product.discount && 
-          product.discount.isActive && 
-          product.discount.type && 
-          product.discount.value) {
-        // Calculate discounted price
+      if (product.discount?.isActive && product.discount.type && product.discount.value) {
         if (product.discount.type === 'percentage') {
           itemPrice = product.price * (1 - (product.discount.value / 100));
         } else if (product.discount.type === 'fixed') {
@@ -119,16 +106,21 @@ export const addToCart = async (req, res) => {
     await cart.save();
     await cart.populate('items.product');
 
+    logger.info(chalk.green('✅ Cart updated successfully:'), {
+      userId: chalk.cyan(req.user.userId),
+      itemCount: chalk.yellow(cart.items.length),
+      total: chalk.green(`$${cart.total.toFixed(2)}`)
+    });
+
     res.json({
       status: 'success',
-      message: 'Items added to cart successfully',
+      message: 'Cart updated with new items',
       data: cart
     });
   } catch (error) {
-    logger.error('Error in addToCart:', {
+    logger.error(chalk.red('❌ Error updating cart:'), {
       error: error.message,
-      stack: error.stack,
-      body: req.body
+      userId: req.user.userId
     });
 
     res.status(error.statusCode || 400).json({
@@ -335,6 +327,144 @@ export const getOngoingOrders = async (req, res) => {
     res.status(500).json({ 
       status: 'error',
       message: error.message 
+    });
+  }
+};
+
+export const getReviewableProducts = async (req, res) => {
+  try {
+    logger.info(chalk.blue('🔍 Fetching reviewable products for user:'), 
+      chalk.cyan(req.user.userId)
+    );
+
+    // Get delivered orders that haven't been reviewed yet
+    const orders = await Order.find({
+      user: req.user.userId,
+      status: 'delivered'
+    }).populate({
+      path: 'items.product',
+      select: 'name price imageUrl category'
+    });
+
+    // Get existing reviews
+    const existingReviews = await Review.find({ user: req.user.userId });
+    const reviewedProducts = new Set(existingReviews.map(r => r.product.toString()));
+
+    // Filter products that haven't been reviewed
+    const reviewableProducts = [];
+    orders.forEach(order => {
+      order.items.forEach(item => {
+        if (item.product && !reviewedProducts.has(item.product._id.toString())) {
+          reviewableProducts.push({
+            product: item.product,
+            orderId: order._id,
+            orderNumber: order.orderNumber,
+            orderDate: order.createdAt,
+            deliveryDate: order.actualDeliveryTime
+          });
+        }
+      });
+    });
+
+    logger.info(chalk.green('✅ Found reviewable products:'), {
+      count: chalk.yellow(reviewableProducts.length)
+    });
+
+    res.json({
+      status: 'success',
+      count: reviewableProducts.length,
+      data: reviewableProducts
+    });
+
+  } catch (error) {
+    logger.error(chalk.red('❌ Error fetching reviewable products:'), {
+      error: error.message,
+      userId: req.user.userId,
+      stack: error.stack
+    });
+
+    res.status(500).json({
+      status: 'error',
+      message: error.message || 'Error fetching reviewable products'
+    });
+  }
+};
+
+export const confirmDelivery = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    logger.info(chalk.blue('🔍 Checking order for delivery confirmation:'), {
+      orderId: chalk.cyan(orderId),
+      userId: chalk.yellow(req.user.userId)
+    });
+
+    // Check if order exists and belongs to user
+    const order = await Order.findOne({
+      _id: orderId,
+      user: req.user.userId
+    });
+
+    if (!order) {
+      logger.warn(chalk.yellow('Order not found or does not belong to user'), {
+        orderId,
+        userId: req.user.userId
+      });
+      throw new ApiError(404, 'Order not found or does not belong to user');
+    }
+
+    // Log the current status of the order
+    logger.info(chalk.blue('Order status check:'), {
+      status: chalk.green(order.status),
+      paymentStatus: chalk.green(order.paymentStatus)
+    });
+
+    // Ensure the order is in a valid status for delivery confirmation
+    if (!['ready', 'confirmed', 'preparing'].includes(order.status)) {
+      throw new ApiError(400, `Order cannot be confirmed as delivered. Current status: ${order.status}`);
+    }
+
+    // Update order status
+    order.status = 'delivered';
+    order.actualDeliveryTime = new Date();
+    order.statusHistory.push({
+      status: 'delivered',
+      updatedBy: req.user.userId,
+      timestamp: new Date()
+    });
+
+    await order.save();
+
+    // Create notification
+    await notificationService.createNotification({
+      user: req.user.userId,
+      title: 'Delivery Confirmed',
+      message: `Thank you for confirming delivery of order #${order.orderNumber}`,
+      type: 'order',
+      orderId: order._id
+    });
+
+    logger.info(chalk.green('✅ Delivery confirmed successfully:'), {
+      orderId: chalk.cyan(order._id),
+      userId: chalk.yellow(req.user.userId)
+    });
+
+    res.json({
+      status: 'success',
+      message: 'Delivery confirmed successfully',
+      data: order
+    });
+
+  } catch (error) {
+    logger.error(chalk.red('❌ Error confirming delivery:'), {
+      error: error.message,
+      orderId: req.params.orderId,
+      userId: req.user.userId
+    });
+
+    res.status(error.statusCode || 400).json({
+      status: 'error',
+      message: error.message
     });
   }
 };
