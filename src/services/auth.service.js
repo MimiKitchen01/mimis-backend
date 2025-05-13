@@ -52,11 +52,11 @@ export const verifyUserOTP = async (email, otp) => {
 };
 
 const generateAuthTokens = async (user) => {
-  // Generate JWT token
+  // Generate JWT token with 3 months expiration
   const token = jwt.sign(
     { userId: user._id, role: user.role },
     process.env.JWT_SECRET,
-    { expiresIn: '24h' }
+    { expiresIn: '90d' }  // Changed to 90 days (3 months)
   );
 
   // Generate Stream Chat token
