@@ -191,27 +191,58 @@ export const uploadProductImages = (req, res, next) => {
       }
     }),
     limits: {
-      fileSize: 5 * 1024 * 1024,
-      files: 8
+      fileSize: 10 * 1024 * 1024, // Increased to 10MB per file
+      files: 8 // Maximum 8 files
     },
-    fileFilter
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.mimetype)) {
+        return cb(new ApiError(400, 'Invalid file type. Only JPEG, PNG and WEBP allowed'), false);
+      }
+      
+      // Log file details
+      logger.info(chalk.blue('📝 Processing product image:'), {
+        filename: chalk.cyan(file.originalname),
+        size: chalk.yellow(`${(file.size / (1024 * 1024)).toFixed(2)}MB`),
+        type: chalk.magenta(file.mimetype)
+      });
+      
+      cb(null, true);
+    }
   }).array('images', 8);
 
   upload(req, res, (err) => {
     if (err instanceof multer.MulterError) {
-      logger.error('Multer error:', err);
-      return res.status(400).json({ message: 'File upload error: ' + err.message });
-    } else if (err) {
-      logger.error('Unknown upload error:', err);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          message: 'File too large. Maximum size is 10MB per image',
+          code: 'FILE_TOO_LARGE',
+          limit: '10MB'
+        });
+      }
+      if (err.code === 'LIMIT_FILE_COUNT') {
+        return res.status(400).json({
+          message: 'Too many files. Maximum is 8 images',
+          code: 'TOO_MANY_FILES',
+          limit: 8
+        });
+      }
+      return res.status(400).json({ 
+        message: `Upload error: ${err.message}`,
+        code: err.code
+      });
+    }
+    
+    if (err) {
+      logger.error(chalk.red('❌ Upload error:'), err);
       return res.status(500).json({ message: 'Error uploading files' });
     }
 
     if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ message: 'At least one image is required' });
-    }
-
-    if (req.files.length > 8) {
-      return res.status(400).json({ message: 'Maximum 8 images allowed' });
+      return res.status(400).json({
+        message: 'At least one image is required',
+        code: 'NO_FILES'
+      });
     }
 
     next();
