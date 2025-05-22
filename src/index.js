@@ -20,25 +20,21 @@ import './config/passport.config.js';
 import chatRoutes from './routes/chat.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
+import { corsMiddleware, handleCors } from './middleware/cors.middleware.js';
 
 const app = express();
 
-// Add request logging middleware before other middleware
-app.use(requestLogger);
+// Apply CORS before other middleware
+app.use(corsMiddleware);
+app.use(handleCors);
+
+// Enable pre-flight for all routes
+app.options('*', cors());
 
 // Request logging middleware
-app.use((req, res, next) => {
-  logger.info({
-    method: req.method,
-    path: req.path,
-    query: req.query,
-    body: req.body
-  });
-  next();
-});
+app.use(requestLogger);
 
 // Middleware
-app.use(cors());
 app.use(express.json());
 app.use(passport.initialize());
 
@@ -62,7 +58,6 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/reviews', reviewRoutes);
 
 // Error handling
-
 app.use(errorHandler);
 
 // 404 handler
@@ -76,7 +71,7 @@ app.use((req, res) => {
     status: 'error',
     message: `Route ${req.path} not found`
   });
-}); // Added missing closing bracket
+});
 
 // Database connection
 mongoose.connect(process.env.MONGODB_URI)
@@ -85,7 +80,7 @@ mongoose.connect(process.env.MONGODB_URI)
 
 // Start server
 const PORT = process.env.PORT || 80;
-app.listen(PORT,'0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', () => {
   logger.info(chalk.green.bold('🚀 Server is running on port:'), chalk.blue(PORT));
   logger.info(chalk.cyan('📚 API Documentation:'), chalk.underline(`http://localhost:${PORT}/api-docs`));
 });
