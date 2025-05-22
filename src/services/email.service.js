@@ -2,13 +2,29 @@ import nodemailer from 'nodemailer';
 import { getOTPTemplate, getWelcomeTemplate, getPaymentInitiatedTemplate, getPaymentSuccessTemplate, getPaymentFailedTemplate } from '../templates/emailTemplates.js';
 import logger from '../utils/logger.js';
 
-const transporter = nodemailer.createTransport({
-  service: process.env.EMAIL_SERVICE,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
-  }
-});
+
+
+
+ const transporter = nodemailer.createTransport({
+    host: 'smtp.zoho.com',
+    port: 587,
+    secure: false, // Use SSL
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+debug: true, // Enable debug logging in production for troubleshooting
+  logger: true, // Enable detailed logging
+  headers: {
+    'X-Sender-Name': "Mimi's Kitchen",
+    'X-Priority': '3'
+  },
+    tls: {
+      // Do not fail on invalid certs
+      rejectUnauthorized: false,
+    }
+  });
+
 
 export const sendEmail = async ({ to, subject, html }) => {
   try {
