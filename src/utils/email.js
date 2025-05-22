@@ -6,7 +6,7 @@ import { getOTPTemplate, getWelcomeTemplate } from '../templates/emailTemplates.
 const transporter = nodemailer.createTransport({
   host: 'smtp.zoho.com',
   port: 587,
-  secure: false,
+  secure: true,
   auth: {
     user: config.emailUser,
     pass: config.emailPassword
