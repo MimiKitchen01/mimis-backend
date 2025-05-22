@@ -1,34 +1,46 @@
 import nodemailer from 'nodemailer';
+import chalk from 'chalk';
 import { config } from '../config/config.js';
 import logger from './logger.js';
 import { getOTPTemplate, getWelcomeTemplate } from '../templates/emailTemplates.js';
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp.zoho.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: config.emailUser,
-    pass: config.emailPassword
-  },
-  tls: {
-    rejectUnauthorized: config.isProduction
-  },
-  debug: !config.isProduction,
-  headers: {
-    'X-Sender-Name': "Mimi's Kitchen",
-    'X-Priority': '3'
-  }
-});
+const createTransporter = () => {
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.zoho.com',
+    port: 465,
+    secure: true, // Use SSL
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+    debug: process.env.NODE_ENV !== 'production',
+    tls: {
+      // Do not fail on invalid certs
+      rejectUnauthorized: process.env.NODE_ENV === 'production'
+    }
+  });
 
-// Verify email connection on startup
-transporter.verify((error, success) => {
-  if (error) {
-    logger.error('SMTP server connection error:', error);
-  } else {
-    logger.info('SMTP server connection successful');
-  }
-});
+  // Verify connection configuration
+  transporter.verify((error, success) => {
+    if (error) {
+      logger.error(chalk.red('Email server connection error:'), {
+        error: error.message,
+        code: error.code,
+        command: error.command,
+        host: 'smtp.zoho.com',
+        port: 465,
+        user: process.env.EMAIL_USER,
+        secure: true
+      });
+    } else {
+      logger.info(chalk.green('✉️ Email server connection verified'));
+    }
+  });
+
+  return transporter;
+};
+
+const transporter = createTransporter();
 
 export const emailService = {
   async sendEmail(to, template) {
@@ -36,19 +48,32 @@ export const emailService = {
       const mailOptions = {
         from: {
           name: "Mimi's Kitchen",
-          address: config.emailUser
+          address: process.env.EMAIL_FROM
         },
-        replyTo: config.emailUser,
         to,
         subject: template.subject,
-        html: template.html
+        html: template.html,
+        headers: {
+          'X-Priority': '1',
+          'X-MS-Exchange-Organization-SCL': '1'
+        }
       };
 
       const info = await transporter.sendMail(mailOptions);
-      logger.info('Email sent successfully:', info.messageId);
+      logger.info(chalk.green('✉️ Email sent successfully:'), {
+        messageId: info.messageId,
+        to,
+        subject: template.subject
+      });
       return info;
     } catch (error) {
-      logger.error('Error sending email:', error);
+      logger.error(chalk.red('❌ Email sending failed:'), {
+        error: error.message,
+        code: error.code,
+        command: error.command,
+        to,
+        subject: template.subject
+      });
       throw error;
     }
   },

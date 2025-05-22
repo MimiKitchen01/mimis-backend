@@ -4,6 +4,11 @@ import { ApiError } from '../middleware/error.middleware.js';
 import { ORDER_STATUS, PAYMENT_STATUS } from '../constants/index.js';
 import logger from '../utils/logger.js';
 import chalk from 'chalk';
+import { Address } from '../models/address.model.js';
+import Cart from '../models/cart.model.js';
+import Review from '../models/review.model.js';
+import Notification from '../models/notification.model.js';
+import { deleteImage } from '../services/image.service.js';
 
 export const getAllUsers = async (options) => {
     logger.info(chalk.blue('📊 Fetching users with options:'),
@@ -173,21 +178,53 @@ export const updateUserRole = async (userId, newRole) => {
 };
 
 export const deleteUser = async (userId) => {
-    logger.info(chalk.blue('🗑️ Deleting user:'), chalk.cyan(userId));
+    try {
+        logger.info(chalk.blue('🗑️ Starting user deletion process:'), chalk.cyan(userId));
 
-    const user = await User.findById(userId);
-    if (!user) {
-        throw new ApiError(404, 'User not found');
+        const user = await User.findById(userId);
+        if (!user) {
+            throw new ApiError(404, 'User not found');
+        }
+
+        // Prevent deletion of admin users
+        if (user.role === 'admin') {
+            throw new ApiError(403, 'Admin users cannot be deleted');
+        }
+
+        // Start cleanup operations in parallel
+        await Promise.all([
+            // Delete all user orders
+            Order.deleteMany({ user: userId }),
+            
+            // Delete user addresses
+            Address.deleteMany({ user: userId }),
+            
+            // Delete user's cart
+            Cart.deleteMany({ user: userId }),
+            
+            // Delete user reviews
+            Review.deleteMany({ user: userId }),
+            
+            // Delete user notifications
+            Notification.deleteMany({ user: userId }),
+            
+            // Delete user's profile image if exists
+            user.imageUrl ? deleteImage(user.imageUrl) : Promise.resolve(),
+            
+            // Finally delete the user
+            User.findByIdAndDelete(userId)
+        ]);
+
+        logger.info(chalk.green('✅ User deletion successful:'), chalk.cyan(userId));
+        return true;
+
+    } catch (error) {
+        logger.error(chalk.red('❌ User deletion failed:'), {
+            userId,
+            error: error.message
+        });
+        throw error;
     }
-
-    // Add cleanup logic for user-related data
-    await Promise.all([
-        Order.deleteMany({ user: userId }),
-        // Add other cleanup operations
-    ]);
-
-    await user.remove();
-    return true;
 };
 
 const transformUserStats = (stats) => {

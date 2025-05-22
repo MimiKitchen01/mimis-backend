@@ -183,13 +183,31 @@ export const updateUserRole = async (req, res) => {
  * @access  Private/Admin
  */
 export const deleteUser = async (req, res) => {
-  try {
-    await adminService.deleteUser(req.params.userId);
-    res.json({ message: 'User deleted successfully' });
-  } catch (error) {
-    logger.error(chalk.red('Delete user error:'), error);
-    res.status(error.statusCode || 500).json({ message: error.message });
-  }
+    try {
+        const { userId } = req.params;
+
+        logger.info(chalk.blue('👤 Admin requesting user deletion:'), {
+            adminId: chalk.cyan(req.user.userId),
+            targetUserId: chalk.yellow(userId)
+        });
+
+        await adminService.deleteUser(userId);
+
+        res.json({
+            status: 'success',
+            message: 'User and all associated data deleted successfully'
+        });
+    } catch (error) {
+        logger.error(chalk.red('❌ Delete user error:'), {
+            error: error.message,
+            userId: req.params.userId
+        });
+        
+        res.status(error.statusCode || 500).json({
+            status: 'error',
+            message: error.message || 'Failed to delete user'
+        });
+    }
 };
 
 // Add other admin controller methods...
