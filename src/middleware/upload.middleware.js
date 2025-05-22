@@ -191,7 +191,7 @@ export const uploadProductImages = (req, res, next) => {
       }
     }),
     limits: {
-      fileSize: 10 * 1024 * 1024, // Increased to 10MB per file
+      fileSize: 40 * 1024 * 1024, // Increased to 40MB per file
       files: 8 // Maximum 8 files
     },
     fileFilter: (req, file, cb) => {
