@@ -24,12 +24,22 @@ import { corsMiddleware, handleCors } from './middleware/cors.middleware.js';
 
 const app = express();
 
-// Apply CORS before other middleware
+// Apply CORS before any other middleware
 app.use(corsMiddleware);
 app.use(handleCors);
 
-// Enable pre-flight for all routes
-app.options('*', cors());
+// Handle preflight requests for all routes
+app.options('*', (req, res) => {
+  res.status(200).end();
+});
+
+// Add security headers
+app.use((req, res, next) => {
+  res.header('X-Content-Type-Options', 'nosniff');
+  res.header('X-Frame-Options', 'DENY');
+  res.header('X-XSS-Protection', '1; mode=block');
+  next();
+});
 
 // Request logging middleware
 app.use(requestLogger);
