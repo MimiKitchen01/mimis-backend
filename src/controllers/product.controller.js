@@ -16,7 +16,7 @@ export const createProduct = async (req, res) => {
     }
 
     // Validate required fields
-    const requiredFields = ['name', 'price', 'category'];
+    const requiredFields = ['name', 'price', 'category', 'description', 'spicyLevel'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
 
     if (missingFields.length > 0) {
@@ -27,11 +27,13 @@ export const createProduct = async (req, res) => {
       throw new ApiError(400, 'Product image is required');
     }
 
-    // Create product with only required fields
+    // Create product with required fields
     const productData = {
       name: req.body.name,
       price: parseFloat(req.body.price),
       category: req.body.category,
+      description: req.body.description,
+      spicyLevel: req.body.spicyLevel,
       imageUrl: req.files[0].location // Main image
     };
 
@@ -540,6 +542,73 @@ export const getMostOrderedProducts = async (req, res) => {
     res.status(500).json({ 
       status: 'error',
       message: error.message 
+    });
+  }
+};
+
+export const getProductAdmin = async (req, res) => {
+  try {
+    logger.info(chalk.blue('🔍 Getting detailed product info for admin:'), {
+      productId: chalk.cyan(req.params.id)
+    });
+
+    const product = await Product.findById(req.params.id).lean();
+    if (!product) {
+      throw new ApiError(404, 'Product not found');
+    }
+
+    // Get detailed stats
+    const [reviews, orderStats] = await Promise.all([
+      Review.find({ product: req.params.id })
+        .populate('user', 'fullName imageUrl')
+        .sort({ createdAt: -1 })
+        .lean(),
+      Order.aggregate([
+        { $unwind: '$items' },
+        { $match: { 'items.product': new mongoose.Types.ObjectId(req.params.id) } },
+        {
+          $group: {
+            _id: null,
+            totalOrders: { $sum: 1 },
+            totalQuantity: { $sum: '$items.quantity' },
+            totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
+          }
+        }
+      ])
+    ]);
+
+    const response = {
+      status: 'success',
+      data: {
+        ...product,
+        stats: {
+          totalOrders: orderStats[0]?.totalOrders || 0,
+          totalQuantity: orderStats[0]?.totalQuantity || 0,
+          totalRevenue: orderStats[0]?.totalRevenue || 0
+        },
+        reviews: {
+          items: reviews,
+          total: reviews.length
+        }
+      }
+    };
+
+    logger.info(chalk.green('✅ Admin product details retrieved:'), {
+      productId: chalk.cyan(req.params.id),
+      reviewCount: chalk.yellow(reviews.length)
+    });
+
+    res.json(response);
+  } catch (error) {
+    logger.error(chalk.red('❌ Error getting admin product details:'), {
+      error: error.message,
+      productId: req.params.id,
+      stack: error.stack
+    });
+
+    res.status(error.statusCode || 404).json({ 
+      status: 'error',
+      message: error.message
     });
   }
 };

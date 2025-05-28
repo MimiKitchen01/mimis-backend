@@ -95,10 +95,8 @@ const router = express.Router();
  *               - name
  *               - description
  *               - price
- *               - preparationTime
- *               - calories
- *               - ingredients
  *               - category
+ *               - spicyLevel
  *               - images
  *             properties:
  *               name:
@@ -127,6 +125,7 @@ const router = express.Router();
  *               spicyLevel:
  *                 type: string
  *                 enum: [Not Spicy, Mild, Medium, Hot, Extra Hot]
+ *                 required: true
  *               allergens:
  *                 type: string
  *                 format: json
@@ -390,4 +389,30 @@ router.delete('/:id', auth, productController.deleteProduct);
  */
 router.get('/:id', productController.getProduct);
 
+/**
+ * @swagger
+ * /api/products/{id}/admin:
+ *   get:
+ *     summary: Get product by ID (Admin only)
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *     responses:
+ *       200:
+ *         description: Detailed product information for admin
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized as admin
+ */
+router.get('/:id/admin', auth, adminAuth, productController.getProductAdmin);
+
 export default router;
+

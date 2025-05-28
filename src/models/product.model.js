@@ -23,7 +23,7 @@ const productSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    default: ''
+    required: [true, 'Product description is required']
   },
   preparationTime: {
     type: Number,
@@ -42,7 +42,8 @@ const productSchema = new mongoose.Schema({
   }],
   spicyLevel: {
     type: String,
-    default: 'Not Spicy'
+    required: [true, 'Spicy level is required'],
+    enum: ['Not Spicy', 'Mild', 'Medium', 'Hot', 'Extra Hot']
   },
   allergens: [{
     type: String
