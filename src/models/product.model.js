@@ -15,7 +15,14 @@ const productSchema = new mongoose.Schema({
   category: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',
-    required: [true, 'Product category is required']
+    required: [true, 'Product category is required'],
+    validate: {
+      validator: async function(v) {
+        const category = await mongoose.model('Category').findById(v);
+        return category !== null;
+      },
+      message: 'Selected category does not exist'
+    }
   },
   imageUrl: {
     type: String,

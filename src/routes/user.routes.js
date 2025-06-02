@@ -4,6 +4,7 @@ import auth from '../middleware/auth.js';
 import { uploadSingleImage } from '../middleware/upload.middleware.js'; // Changed from uploadToS3
 import logger from '../utils/logger.js';
 
+
 /**
  * @swagger
  * tags:

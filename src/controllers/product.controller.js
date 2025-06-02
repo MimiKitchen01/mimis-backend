@@ -28,30 +28,62 @@ export const createProduct = async (req, res) => {
       throw new ApiError(400, 'Product image is required');
     }
 
+    // Validate category exists
+    const category = await Category.findById(req.body.category);
+    if (!category) {
+      throw new ApiError(400, 'Invalid category ID');
+    }
+
     // Create product with required fields
     const productData = {
-      name: req.body.name,
+      name: req.body.name.trim(),
       price: parseFloat(req.body.price),
-      category: req.body.category,
-      description: req.body.description,
+      category: category._id, // Use the validated category ID
+      description: req.body.description.trim(),
       spicyLevel: req.body.spicyLevel,
-      imageUrl: req.files[0].location // Main image
+      imageUrl: req.files[0].location, // Main image
+      // Optional fields
+      ingredients: req.body.ingredients ? JSON.parse(req.body.ingredients) : [],
+      preparationTime: req.body.preparationTime ? parseInt(req.body.preparationTime) : undefined,
+      allergens: req.body.allergens ? JSON.parse(req.body.allergens) : [],
+      dietaryInfo: req.body.dietaryInfo ? JSON.parse(req.body.dietaryInfo) : [],
+      customizationOptions: req.body.customizationOptions ? JSON.parse(req.body.customizationOptions) : []
     };
 
-    // Optional: Add additional images if provided
+    // Add additional images if provided
     if (req.files.length > 1) {
       productData.additionalImages = req.files.slice(1).map(file => file.location);
     }
 
     const product = await Product.create(productData);
     
+    // Populate category details in response
+    await product.populate('category');
+
+    logger.info(chalk.green('✅ Product created successfully:'), {
+      id: chalk.cyan(product._id),
+      name: chalk.yellow(product.name)
+    });
+
     res.status(201).json({
       status: 'success',
       message: 'Product created successfully',
       data: product
     });
   } catch (error) {
-    logger.error('Error in createProduct:', error);
+    logger.error(chalk.red('❌ Error creating product:'), {
+      error: error.message,
+      stack: error.stack
+    });
+
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Validation Error',
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+
     res.status(error.statusCode || 400).json({
       status: 'error',
       message: error.message
