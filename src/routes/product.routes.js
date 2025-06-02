@@ -197,6 +197,38 @@ router.get('/', productController.getAllProducts);
 
 /**
  * @swagger
+ * /api/products/categories:
+ *   get:
+ *     summary: Get all active product categories
+ *     tags: [Products]
+ *     responses:
+ *       200:
+ *         description: List of product categories
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       sortOrder:
+ *                         type: number
+ */
+router.get('/categories', productController.getCategories);
+
+/**
+ * @swagger
  * /api/products/admin:
  *   get:
  *     summary: Get all products (Admin only)

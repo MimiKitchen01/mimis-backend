@@ -21,12 +21,14 @@ export const PAYMENT_STATUS = {
 
 export const PRODUCT_CATEGORIES = [
   'Appetizers Menu',
-  'Snack Menu',
+  'Pasta Menu',
   'Drink Menu',
   'Rice Menu',
   'Soups Menu',
   'Extra Swallow',
-  'Protein Menu'
+  'Protein Menu',
+  'Sauce Menu',
+
   
 ];
 

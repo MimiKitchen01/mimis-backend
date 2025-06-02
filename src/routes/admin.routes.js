@@ -3,6 +3,7 @@ import * as adminController from '../controllers/admin.controller.js';
 import auth from '../middleware/auth.js';
 import { adminAuth } from '../middleware/admin.middleware.js';
 import { uploadSingleImage } from '../middleware/upload.middleware.js';
+import * as categoryController from '../controllers/category.controller.js';
 
 /**
  * @swagger
@@ -582,5 +583,64 @@ router.patch(
   adminAuth,
   adminController.updateOrderPaymentStatus
 );
+
+/**
+ * @swagger
+ * /api/admin/categories:
+ *   post:
+ *     summary: Create a new category
+ *     tags: [Admin]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               sortOrder:
+ *                 type: number
+ */
+router.post('/categories', auth, adminAuth, categoryController.createCategory);
+
+/**
+ * @swagger
+ * /api/admin/categories:
+ *   get:
+ *     summary: Get all categories
+ *     tags: [Admin]
+ *     security:
+ *       - BearerAuth: []
+ */
+router.get('/categories', auth, adminAuth, categoryController.getCategories);
+
+/**
+ * @swagger
+ * /api/admin/categories/{id}:
+ *   patch:
+ *     summary: Update a category
+ *     tags: [Admin]
+ *     security:
+ *       - BearerAuth: []
+ */
+router.patch('/categories/:id', auth, adminAuth, categoryController.updateCategory);
+
+/**
+ * @swagger
+ * /api/admin/categories/{id}:
+ *   delete:
+ *     summary: Delete a category
+ *     tags: [Admin]
+ *     security:
+ *       - BearerAuth: []
+ */
+router.delete('/categories/:id', auth, adminAuth, categoryController.deleteCategory);
 
 export default router;

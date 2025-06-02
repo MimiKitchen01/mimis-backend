@@ -2,6 +2,7 @@ import * as productService from '../services/product.service.js';
 import { formatImageUrls } from '../middleware/upload.middleware.js';
 import { ApiError } from '../middleware/error.middleware.js';
 import Product from '../models/product.model.js';
+import Category from '../models/category.model.js'; // Import Category model
 import logger from '../utils/logger.js';
 import chalk from 'chalk'; // Add chalk import
 import * as imageService from '../services/image.service.js';
@@ -609,6 +610,33 @@ export const getProductAdmin = async (req, res) => {
     res.status(error.statusCode || 404).json({ 
       status: 'error',
       message: error.message
+    });
+  }
+};
+
+// New controller method to handle getting categories
+export const getCategories = async (req, res) => {
+  try {
+    logger.info(chalk.blue('📋 Fetching product categories'));
+
+    const categories = await Category.find({ isActive: true })
+      .sort({ sortOrder: 1, name: 1 })
+      .select('name description sortOrder')
+      .lean();
+
+    logger.info(chalk.green('✅ Categories fetched:'), 
+      chalk.yellow(categories.length)
+    );
+
+    res.json({
+      status: 'success',
+      data: categories
+    });
+  } catch (error) {
+    logger.error(chalk.red('❌ Error fetching categories:'), error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch categories'
     });
   }
 };
