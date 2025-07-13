@@ -46,7 +46,7 @@ export const createPaymentSession = async (req, res) => {
       paymentIntentId: paymentIntent.id,
       amount: order.total,
       paymentStatus: 'pending',
-      currency: 'usd'
+      currency: 'eur'
     };
     await order.save();
 

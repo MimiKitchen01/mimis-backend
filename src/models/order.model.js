@@ -52,7 +52,7 @@ const orderSchema = new mongoose.Schema({
     amount: Number,
     currency: {
       type: String,
-      default: 'USD'
+      default: 'EUR'
     }
   },
   orderNumber: {
