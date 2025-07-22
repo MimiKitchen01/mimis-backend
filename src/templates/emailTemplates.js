@@ -188,7 +188,7 @@ export const getOrderConfirmationTemplate = (order, user) => {
             ${order.items.map(item => `
               <div class="order-item">
                 <span>${item.quantity}x ${item.product.name}</span>
-                <span>$${(item.price * item.quantity).toFixed(2)}</span>
+                <span>£${(item.price * item.quantity).toFixed(2)}</span>
               </div>
             `).join('')}
             
@@ -364,7 +364,7 @@ export const getPaymentInitiatedTemplate = (order, user) => {
               <div class="order-item">
                 <img src="${item.product.imageUrl}" style="width: 50px; height: 50px; object-fit: cover;">
                 <span>${item.quantity}x ${item.product.name}</span>
-                <span>$${(item.price * item.quantity).toFixed(2)}</span>
+                <span>£${(item.price * item.quantity).toFixed(2)}</span>
               </div>
             `).join('')}
             
@@ -405,12 +405,12 @@ export const getPaymentSuccessTemplate = (order, user) => {
               <div class="order-item">
                 <img src="${item.product.imageUrl}" style="width: 50px; height: 50px; object-fit: cover;">
                 <span>${item.quantity}x ${item.product.name}</span>
-                <span>$${(item.price * item.quantity).toFixed(2)}</span>
+                <span>£${(item.price * item.quantity).toFixed(2)}</span>
               </div>
             `).join('')}
             
             <div class="total">
-              Total Paid: $${order.total.toFixed(2)}
+              Total Paid: £${order.total.toFixed(2)}
             </div>
           </div>
 
@@ -449,12 +449,12 @@ export const getPaymentFailedTemplate = (order, user) => {
               <div class="order-item">
                 <img src="${item.product.imageUrl}" style="width: 50px; height: 50px; object-fit: cover;">
                 <span>${item.quantity}x ${item.product.name}</span>
-                <span>$${(item.price * item.quantity).toFixed(2)}</span>
+                <span>£${(item.price * item.quantity).toFixed(2)}</span>
               </div>
             `).join('')}
             
             <div class="total">
-              Total Amount: $${order.total.toFixed(2)}
+              Total Amount: £${order.total.toFixed(2)}
             </div>
           </div>
 
