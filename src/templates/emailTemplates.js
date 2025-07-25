@@ -193,7 +193,7 @@ export const getOrderConfirmationTemplate = (order, user) => {
             `).join('')}
             
             <div class="total">
-              Total: $${order.total.toFixed(2)}
+              Total: £${order.total.toFixed(2)}
             </div>
           </div>
 
@@ -346,8 +346,39 @@ export const getPaymentInitiatedTemplate = (order, user) => {
     <!DOCTYPE html>
     <html>
     <head>
-      <style>
-        /* ...existing styles... */
+     <style>
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          font-family: Arial, sans-serif;
+        }
+        .header {
+          background-color: #f8a035;
+          color: white;
+          padding: 20px;
+          text-align: center;
+          border-radius: 5px 5px 0 0;
+        }
+        .content {
+          padding: 20px;
+          background-color: #ffffff;
+          border: 1px solid #dddddd;
+        }
+        .otp-code {
+          font-size: 32px;
+          font-weight: bold;
+          text-align: center;
+          color: #f8a035;
+          margin: 20px 0;
+          letter-spacing: 5px;
+        }
+        .footer {
+          text-align: center;
+          padding: 20px;
+          color: #666666;
+          font-size: 12px;
+        }
       </style>
     </head>
     <body>
@@ -387,8 +418,39 @@ export const getPaymentSuccessTemplate = (order, user) => {
     <!DOCTYPE html>
     <html>
     <head>
-      <style>
-        /* ...existing styles... */
+     <style>
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          font-family: Arial, sans-serif;
+        }
+        .header {
+          background-color: #f8a035;
+          color: white;
+          padding: 20px;
+          text-align: center;
+          border-radius: 5px 5px 0 0;
+        }
+        .content {
+          padding: 20px;
+          background-color: #ffffff;
+          border: 1px solid #dddddd;
+        }
+        .otp-code {
+          font-size: 32px;
+          font-weight: bold;
+          text-align: center;
+          color: #f8a035;
+          margin: 20px 0;
+          letter-spacing: 5px;
+        }
+        .footer {
+          text-align: center;
+          padding: 20px;
+          color: #666666;
+          font-size: 12px;
+        }
       </style>
     </head>
     <body>
@@ -430,6 +492,40 @@ export const getPaymentFailedTemplate = (order, user) => {
     <!DOCTYPE html>
     <html>
     <head>
+     <style>
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          font-family: Arial, sans-serif;
+        }
+        .header {
+          background-color: #f8a035;
+          color: white;
+          padding: 20px;
+          text-align: center;
+          border-radius: 5px 5px 0 0;
+        }
+        .content {
+          padding: 20px;
+          background-color: #ffffff;
+          border: 1px solid #dddddd;
+        }
+        .otp-code {
+          font-size: 32px;
+          font-weight: bold;
+          text-align: center;
+          color: #f8a035;
+          margin: 20px 0;
+          letter-spacing: 5px;
+        }
+        .footer {
+          text-align: center;
+          padding: 20px;
+          color: #666666;
+          font-size: 12px;
+        }
+      </style>
       <style>
         /* Use existing styles */
         ${getCommonStyles()}
