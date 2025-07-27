@@ -400,7 +400,7 @@ export const getPaymentInitiatedTemplate = (order, user) => {
             `).join('')}
             
             <div class="total">
-              Total Amount: $${order.total.toFixed(2)}
+              Total Amount: £${order.total.toFixed(2)}
             </div>
           </div>
         </div>
