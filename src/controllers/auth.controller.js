@@ -36,7 +36,7 @@ export const verifyOTP = async (req, res) => {
 export const login = async (req, res) => {
   try {
     logger.info(chalk.blue('🔑 Login attempt:'), chalk.cyan(req.body.email));
-    const { token, user, chat } = await authService.loginUser(req.body.email, req.body.password);
+    const { token, user } = await authService.loginUser(req.body.email, req.body.password);
 
     res.json({
       token,
@@ -46,11 +46,6 @@ export const login = async (req, res) => {
         fullName: user.fullName,
         role: user.role,
         imageUrl: user.imageUrl
-      },
-      chat: {
-        token: chat.token,
-        apiKey: chat.apiKey,
-        userId: user._id.toString()
       }
     });
   } catch (error) {

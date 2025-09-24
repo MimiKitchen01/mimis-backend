@@ -10,7 +10,6 @@ import * as adminService from '../services/admin.service.js';
 import * as orderService from '../services/order.service.js';
 import logger from '../utils/logger.js';
 import chalk from 'chalk';
-import streamClient from '../config/stream.config.js';
 
 export const adminLogin = async (req, res) => {
   try {
@@ -32,17 +31,6 @@ export const adminLogin = async (req, res) => {
       { expiresIn: '90d' }  // Changed to 90 days (3 months)
     );
 
-    // Create/Update Stream Chat user
-    await streamClient.upsertUser({
-      id: admin._id.toString(),
-      role: 'admin',
-      name: admin.fullName || 'Customer Support Admin',
-      image: admin.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(admin.fullName)}`
-    });
-
-    // Generate Stream Chat token
-    const streamToken = streamClient.createToken(admin._id.toString());
-
     logger.info(chalk.green('✅ Admin login successful:'),
       chalk.yellow(admin.email)
     );
@@ -55,11 +43,6 @@ export const adminLogin = async (req, res) => {
         fullName: admin.fullName,
         role: admin.role,
         imageUrl: admin.imageUrl
-      },
-      chat: {
-        token: streamToken,
-        apiKey: process.env.STREAM_API_KEY,
-        userId: admin._id.toString()
       }
     });
   } catch (error) {

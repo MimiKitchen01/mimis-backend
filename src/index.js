@@ -17,7 +17,6 @@ import swaggerSpec from './config/swagger.config.js';
 import { requestLogger } from './middleware/logging.middleware.js';
 import passport from 'passport';
 import './config/passport.config.js';
-import chatRoutes from './routes/chat.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import { corsMiddleware, handleCors } from './middleware/cors.middleware.js';
@@ -66,7 +65,6 @@ app.use('/api/addresses', addressRouter); // Use the named import
 app.use('/api/products', productRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/orders', orderRoutes);
-app.use('/api/chat', chatRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reviews', reviewRoutes);

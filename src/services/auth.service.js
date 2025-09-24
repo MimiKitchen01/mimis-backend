@@ -2,7 +2,6 @@ import User from '../models/user.model.js';
 import jwt from 'jsonwebtoken';
 import chalk from 'chalk';
 import logger from '../utils/logger.js';
-import streamClient from '../config/stream.config.js';
 
 export const generateOTP = () => {
   // Generate 5-digit OTP (10000 to 99999)
@@ -59,15 +58,8 @@ const generateAuthTokens = async (user) => {
     { expiresIn: '90d' }  // Changed to 90 days (3 months)
   );
 
-  // Generate Stream Chat token
-  const streamToken = streamClient.createToken(user._id.toString());
-
   return {
-    token,
-    chat: {
-      token: streamToken,
-      apiKey: process.env.STREAM_API_KEY
-    }
+    token
   };
 };
 
@@ -92,10 +84,10 @@ export const loginUser = async (email, password, role = 'user') => {
     throw new Error('Please verify your email first');
   }
 
-  const tokens = await generateAuthTokens(user);
+  const { token } = await generateAuthTokens(user);
 
   return {
     user,
-    ...tokens
+    token
   };
 };

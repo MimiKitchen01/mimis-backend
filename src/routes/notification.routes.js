@@ -29,7 +29,7 @@ const router = express.Router();
  *         name: type
  *         schema:
  *           type: string
- *           enum: [order, payment, system, chat]
+ *           enum: [order, payment, system]
  */
 router.get('/', auth, notificationController.getNotifications);
 
@@ -97,7 +97,7 @@ router.delete('/clear-all', auth, notificationController.clearAllReadNotificatio
  *         required: true
  *         schema:
  *           type: string
- *           enum: [order, payment, system, chat]
+ *           enum: [order, payment, system]
  */
 router.get('/type/:type', auth, notificationController.getNotificationsByType);
 
