@@ -16,7 +16,12 @@ export const register = async (req, res) => {
     logger.info(chalk.blue('📝 New user registration:'), chalk.cyan(req.body.email));
     const { user, otpCode } = await authService.createUser(req.body);
     await emailService.sendOTPEmail(user.email, otpCode, user.fullName);
-    res.status(201).json({ message: 'Registration successful. Please verify your email.' });
+
+    const isDev = process.env.NODE_ENV !== 'production';
+    res.status(201).json({
+      message: 'Registration successful. Please verify your email.',
+      ...(isDev && { otp: otpCode })
+    });
   } catch (error) {
     logger.error(chalk.red('Registration failed:'), chalk.yellow(error.message));
     res.status(400).json({ message: error.message });
@@ -85,17 +90,19 @@ export const forgotPassword = async (req, res) => {
 
     logger.info(chalk.blue('📧 Generated OTP:'), chalk.cyan(resetOTP));
 
-    // Send OTP email
+  // Send OTP email
     await emailService.sendEmail({
       to: user.email,
       subject: 'Password Reset OTP',
       html: getResetOTPTemplate(user.fullName, resetOTP)
     });
 
+    const isDev = process.env.NODE_ENV !== 'production';
     res.json({
       message: 'Password reset OTP sent to email',
       email: user.email,
-      expiresIn: '10 minutes'
+      expiresIn: '10 minutes',
+      ...(isDev && { otp: resetOTP })
     });
   } catch (error) {
     logger.error(chalk.red('Forgot password error:'), chalk.yellow(error.message));
