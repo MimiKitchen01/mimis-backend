@@ -6,22 +6,25 @@ import { getOTPTemplate, getWelcomeTemplate } from '../templates/emailTemplates.
 
 const createTransporter = () => {
   const transporter = nodemailer.createTransport({
-    host: 'smtp.zoho.com',
-    port: 465,
-    secure: true, // Use SSL
+    host: process.env.EMAIL_HOST || 'smtp.zoho.com',
+    port: Number(process.env.EMAIL_PORT) || 587,
+    secure: process.env.EMAIL_PORT === '465', // true for 465, false for 587
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD,
     },
-debug: true, // Enable debug logging in production for troubleshooting
-  logger: true, // Enable detailed logging
-  headers: {
-    'X-Sender-Name': "Mimi's Kitchen",
-    'X-Priority': '3'
-  },
+    debug: true, // Enable debug logging
+    logger: true, // Enable detailed logging
+    connectionTimeout: 10000, // 10 seconds
+    greetingTimeout: 10000, // 10 seconds
+    socketTimeout: 30000, // 30 seconds
+    headers: {
+      'X-Sender-Name': "Mimi's Kitchen",
+      'X-Priority': '3'
+    },
     tls: {
-      // Do not fail on invalid certs
-      rejectUnauthorized: false,
+      rejectUnauthorized: true, // Changed to true for security
+      minVersion: 'TLSv1.2' // Ensure modern TLS
     }
   });
 
