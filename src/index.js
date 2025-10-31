@@ -20,6 +20,7 @@ import './config/passport.config.js';
 import paymentRoutes from './routes/payment.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import { corsMiddleware, handleCors } from './middleware/cors.middleware.js';
+import { initEmailService } from './services/email.service.js';
 
 const app = express();
 
@@ -95,6 +96,10 @@ const PORT = process.env.PORT || 80;
 app.listen(PORT, '0.0.0.0', () => {
   logger.info(chalk.green.bold('🚀 Server is running on port:'), chalk.blue(PORT));
   logger.info(chalk.cyan('📚 API Documentation:'), chalk.underline(`http://localhost:${PORT}/api-docs`));
+  // Initialize and verify email service on startup (non-blocking)
+  initEmailService()
+    .then(() => logger.info(chalk.green('✉️ Mail service initialization complete')))
+    .catch((err) => logger.error(chalk.red('✉️ Mail service initialization error:'), err));
 });
 
 // Error handler

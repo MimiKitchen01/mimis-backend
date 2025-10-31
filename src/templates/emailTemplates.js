@@ -1,58 +1,155 @@
 export const getOTPTemplate = (otp, fullName) => {
   return `
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
-        .container {
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+          padding: 40px 20px;
+          line-height: 1.6;
+        }
+        .email-wrapper {
           max-width: 600px;
           margin: 0 auto;
-          padding: 20px;
-          font-family: Arial, sans-serif;
+          background: #ffffff;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
         }
         .header {
-          background-color: #f8a035;
-          color: white;
-          padding: 20px;
+          background: linear-gradient(135deg, #f8a035 0%, #ff8c42 100%);
+          padding: 40px 30px;
           text-align: center;
-          border-radius: 5px 5px 0 0;
+          position: relative;
+        }
+        .header::before {
+          content: '🍳';
+          font-size: 48px;
+          display: block;
+          margin-bottom: 10px;
+        }
+        .header h1 {
+          color: #ffffff;
+          font-size: 28px;
+          font-weight: 700;
+          margin: 0;
+          text-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .content {
-          padding: 20px;
-          background-color: #ffffff;
-          border: 1px solid #dddddd;
+          padding: 40px 30px;
+          background: #ffffff;
+        }
+        .greeting {
+          font-size: 22px;
+          font-weight: 600;
+          color: #2d3748;
+          margin-bottom: 16px;
+        }
+        .message {
+          font-size: 16px;
+          color: #4a5568;
+          margin-bottom: 30px;
+          line-height: 1.8;
+        }
+        .otp-container {
+          background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%);
+          border: 2px dashed #f8a035;
+          border-radius: 12px;
+          padding: 30px;
+          margin: 30px 0;
+          text-align: center;
+        }
+        .otp-label {
+          font-size: 14px;
+          color: #718096;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 12px;
+          font-weight: 600;
         }
         .otp-code {
-          font-size: 32px;
-          font-weight: bold;
-          text-align: center;
+          font-size: 42px;
+          font-weight: 800;
           color: #f8a035;
-          margin: 20px 0;
-          letter-spacing: 5px;
+          letter-spacing: 12px;
+          font-family: 'Courier New', monospace;
+          text-shadow: 0 2px 4px rgba(248, 160, 53, 0.2);
+        }
+        .expiry-notice {
+          background: #fff3cd;
+          border-left: 4px solid #ffc107;
+          padding: 16px;
+          margin: 24px 0;
+          border-radius: 4px;
+          font-size: 14px;
+          color: #856404;
+        }
+        .security-note {
+          font-size: 14px;
+          color: #718096;
+          padding: 20px;
+          background: #f7fafc;
+          border-radius: 8px;
+          margin-top: 24px;
         }
         .footer {
+          background: #2d3748;
+          padding: 30px;
           text-align: center;
-          padding: 20px;
-          color: #666666;
-          font-size: 12px;
+          color: #cbd5e0;
+        }
+        .footer-text {
+          font-size: 13px;
+          margin-bottom: 8px;
+        }
+        .footer-brand {
+          font-size: 14px;
+          font-weight: 600;
+          color: #f8a035;
+          margin-top: 12px;
+        }
+        @media only screen and (max-width: 600px) {
+          .email-wrapper { border-radius: 0; }
+          .content, .header { padding: 30px 20px; }
+          .otp-code { font-size: 36px; letter-spacing: 8px; }
         }
       </style>
     </head>
     <body>
-      <div class="container">
+      <div class="email-wrapper">
         <div class="header">
           <h1>Email Verification</h1>
         </div>
         <div class="content">
-          <h2>Hello ${fullName}!</h2>
-          <p>Thank you for registering with Mimi's Kitchen. To complete your registration, please use the following OTP code:</p>
-          <div class="otp-code">${otp}</div>
-          <p>This code will expire in 10 minutes.</p>
-          <p>If you didn't request this code, please ignore this email.</p>
+          <div class="greeting">Hello ${fullName}! 👋</div>
+          <p class="message">
+            Thank you for joining <strong>Mimi's Kitchen</strong>! We're excited to have you on board. 
+            To complete your registration and start ordering delicious meals, please verify your email address.
+          </p>
+          
+          <div class="otp-container">
+            <div class="otp-label">Your Verification Code</div>
+            <div class="otp-code">${otp}</div>
+          </div>
+          
+          <div class="expiry-notice">
+            ⏱️ <strong>Important:</strong> This code will expire in <strong>10 minutes</strong>.
+          </div>
+          
+          <div class="security-note">
+            🔒 <strong>Security Tip:</strong> Never share this code with anyone. Our team will never ask for your verification code.
+            If you didn't request this code, please ignore this email or contact our support team.
+          </div>
         </div>
         <div class="footer">
-          <p>This is an automated message, please do not reply.</p>
-          <p>&copy; ${new Date().getFullYear()} Mimi's Kitchen. All rights reserved.</p>
+          <p class="footer-text">This is an automated message, please do not reply to this email.</p>
+          <p class="footer-text">Need help? Contact us at support@mimiskitchenuk.com</p>
+          <div class="footer-brand">Mimi's Kitchen © ${new Date().getFullYear()}</div>
         </div>
       </div>
     </body>
@@ -63,85 +160,211 @@ export const getOTPTemplate = (otp, fullName) => {
 export const getWelcomeTemplate = (fullName) => {
   return `
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
-        .container {
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+          padding: 40px 20px;
+          line-height: 1.6;
+        }
+        .email-wrapper {
           max-width: 600px;
           margin: 0 auto;
-          padding: 20px;
-          font-family: Arial, sans-serif;
+          background: #ffffff;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
         }
         .header {
-          background-color: #f8a035;
-          color: white;
-          padding: 20px;
+          background: linear-gradient(135deg, #f8a035 0%, #ff8c42 100%);
+          padding: 50px 30px;
           text-align: center;
-          border-radius: 5px 5px 0 0;
+          position: relative;
+        }
+        .header::before {
+          content: '🎉';
+          font-size: 64px;
+          display: block;
+          margin-bottom: 15px;
+        }
+        .header h1 {
+          color: #ffffff;
+          font-size: 32px;
+          font-weight: 700;
+          margin: 0;
+          text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header p {
+          color: #fff;
+          font-size: 16px;
+          margin-top: 10px;
+          opacity: 0.9;
         }
         .content {
-          padding: 20px;
-          background-color: #ffffff;
-          border: 1px solid #dddddd;
+          padding: 40px 30px;
+          background: #ffffff;
+        }
+        .greeting {
+          font-size: 24px;
+          font-weight: 600;
+          color: #2d3748;
+          margin-bottom: 20px;
+        }
+        .message {
+          font-size: 16px;
+          color: #4a5568;
+          margin-bottom: 30px;
+          line-height: 1.8;
+        }
+        .features-section {
+          background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+          padding: 30px;
+          border-radius: 12px;
+          margin: 30px 0;
+        }
+        .features-title {
+          font-size: 18px;
+          font-weight: 600;
+          color: #2d3748;
+          margin-bottom: 20px;
+          text-align: center;
+        }
+        .features {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+        .features li {
+          padding: 15px;
+          margin: 10px 0;
+          background: #ffffff;
+          border-radius: 8px;
+          border-left: 4px solid #f8a035;
+          font-size: 15px;
+          color: #4a5568;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          transition: transform 0.2s;
+        }
+        .features li::before {
+          content: '✓';
+          display: inline-block;
+          width: 24px;
+          height: 24px;
+          background: linear-gradient(135deg, #f8a035 0%, #ff8c42 100%);
+          color: white;
+          border-radius: 50%;
+          text-align: center;
+          line-height: 24px;
+          font-weight: bold;
+          flex-shrink: 0;
+        }
+        .cta-section {
+          text-align: center;
+          margin: 40px 0;
+        }
+        .cta-text {
+          font-size: 18px;
+          color: #2d3748;
+          margin-bottom: 20px;
+          font-weight: 600;
         }
         .button {
           display: inline-block;
-          padding: 10px 20px;
-          background-color: #f8a035;
-          color: white;
+          padding: 16px 40px;
+          background: linear-gradient(135deg, #f8a035 0%, #ff8c42 100%);
+          color: white !important;
           text-decoration: none;
-          border-radius: 5px;
-          margin: 20px 0;
+          border-radius: 50px;
+          font-weight: 600;
+          font-size: 16px;
+          box-shadow: 0 4px 15px rgba(248, 160, 53, 0.3);
+          transition: transform 0.2s, box-shadow 0.2s;
         }
-        .features {
-          margin: 20px 0;
-          padding: 0;
-          list-style: none;
+        .button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(248, 160, 53, 0.4);
         }
-        .features li {
-          margin: 10px 0;
-          padding-left: 20px;
-          position: relative;
-        }
-        .features li:before {
-          content: "•";
-          color: #f8a035;
-          position: absolute;
-          left: 0;
+        .support-box {
+          background: #e6fffa;
+          border: 2px solid #81e6d9;
+          border-radius: 8px;
+          padding: 20px;
+          margin-top: 30px;
+          text-align: center;
+          font-size: 14px;
+          color: #234e52;
         }
         .footer {
+          background: #2d3748;
+          padding: 30px;
           text-align: center;
-          padding: 20px;
-          color: #666666;
-          font-size: 12px;
+          color: #cbd5e0;
+        }
+        .footer-text {
+          font-size: 13px;
+          margin-bottom: 8px;
+        }
+        .footer-brand {
+          font-size: 14px;
+          font-weight: 600;
+          color: #f8a035;
+          margin-top: 12px;
+        }
+        @media only screen and (max-width: 600px) {
+          .email-wrapper { border-radius: 0; }
+          .content, .header { padding: 30px 20px; }
+          .features-section { padding: 20px; }
         }
       </style>
     </head>
     <body>
-      <div class="container">
+      <div class="email-wrapper">
         <div class="header">
           <h1>Welcome to Mimi's Kitchen!</h1>
+          <p>Your culinary journey starts here</p>
         </div>
         <div class="content">
-          <h2>Dear ${fullName},</h2>
-          <p>Thank you for joining Mimi's Kitchen! We're excited to have you as part of our family.</p>
+          <div class="greeting">Hello ${fullName}! 👋</div>
+          <p class="message">
+            We're absolutely thrilled to welcome you to the <strong>Mimi's Kitchen</strong> family! 
+            Your account is now active and you're all set to explore our delicious offerings.
+          </p>
           
-          <p>Here's what you can do with your account:</p>
-          <ul class="features">
-            <li>Order delicious food from our menu</li>
-            <li>Save your favorite dishes</li>
-            <li>Track your orders in real-time</li>
-            <li>Earn rewards with every order</li>
-          </ul>
-
-          <p>Ready to start ordering?</p>
-          <a href="${process.env.FRONTEND_URL}" class="button">Browse Our Menu</a>
-
-          <p>If you have any questions or need assistance, our customer service team is here to help.</p>
+          <div class="features-section">
+            <div class="features-title">🍽️ What You Can Do Now</div>
+            <ul class="features">
+              <li>Browse and order from our extensive menu of delicious dishes</li>
+              <li>Save your favorite items for quick reordering</li>
+              <li>Track your orders in real-time from kitchen to doorstep</li>
+              <li>Earn loyalty rewards and exclusive discounts with every order</li>
+              <li>Get personalized recommendations based on your preferences</li>
+            </ul>
+          </div>
+          
+          <div class="cta-section">
+            <p class="cta-text">🚀 Ready to place your first order?</p>
+            <a href="${process.env.FRONTEND_URL || 'https://mimiskitchen.com'}" class="button">
+              Explore Our Menu
+            </a>
+          </div>
+          
+          <div class="support-box">
+            💬 <strong>Need Help?</strong><br>
+            Our customer support team is here for you 24/7.<br>
+            Reach us at <strong>support@mimiskitchenuk.com</strong>
+          </div>
         </div>
         <div class="footer">
-          <p>This is an automated message, please do not reply.</p>
-          <p>&copy; ${new Date().getFullYear()} Mimi's Kitchen. All rights reserved.</p>
+          <p class="footer-text">Thank you for choosing Mimi's Kitchen!</p>
+          <p class="footer-text">This is an automated message, please do not reply to this email.</p>
+          <div class="footer-brand">Mimi's Kitchen © ${new Date().getFullYear()}</div>
         </div>
       </div>
     </body>

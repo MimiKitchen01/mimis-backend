@@ -1,75 +1,24 @@
-import nodemailer from 'nodemailer';
 import chalk from 'chalk';
-import { config } from '../config/config.js';
+import { MailtrapClient } from 'mailtrap';
 import logger from './logger.js';
 import { getOTPTemplate, getWelcomeTemplate } from '../templates/emailTemplates.js';
 
-const createTransporter = () => {
-  const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.zoho.com',
-    port: Number(process.env.EMAIL_PORT) || 587,
-    secure: process.env.EMAIL_PORT === '465', // true for 465, false for 587
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
-    },
-    debug: true, // Enable debug logging
-    logger: true, // Enable detailed logging
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 10000, // 10 seconds
-    socketTimeout: 30000, // 30 seconds
-    headers: {
-      'X-Sender-Name': "Mimi's Kitchen",
-      'X-Priority': '3'
-    },
-    tls: {
-      rejectUnauthorized: true, // Changed to true for security
-      minVersion: 'TLSv1.2' // Ensure modern TLS
-    }
-  });
-
-  // Verify connection configuration
-  transporter.verify((error, success) => {
-    if (error) {
-      logger.error(chalk.red('Email server connection error:'), {
-        error: error.message,
-        code: error.code,
-        command: error.command,
-        host: 'smtp.zoho.com',
-        port: 465,
-        user: process.env.EMAIL_USER,
-        secure: true
-      });
-    } else {
-      logger.info(chalk.green('✉️ Email server connection verified'));
-    }
-  });
-
-  return transporter;
-};
-
-const transporter = createTransporter();
+const client = new MailtrapClient({ token: process.env.MAILTRAP_TOKEN });
 
 export const emailService = {
   async sendEmail(to, template) {
     try {
-      const mailOptions = {
-        from: {
-          name: "Mimi's Kitchen",
-          address: process.env.EMAIL_FROM
-        },
-        to,
+      const fromEmail = process.env.EMAIL_FROM || 'hello@mimiskitchenuk.com';
+      const payload = {
+        from: { email: fromEmail, name: "Mimi's Kitchen" },
+        to: [{ email: to }],
         subject: template.subject,
         html: template.html,
-        headers: {
-          'X-Priority': '1',
-          'X-MS-Exchange-Organization-SCL': '1'
-        }
+        category: 'Transactional'
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      const info = await client.send(payload);
       logger.info(chalk.green('✉️ Email sent successfully:'), {
-        messageId: info.messageId,
         to,
         subject: template.subject
       });
@@ -77,8 +26,6 @@ export const emailService = {
     } catch (error) {
       logger.error(chalk.red('❌ Email sending failed:'), {
         error: error.message,
-        code: error.code,
-        command: error.command,
         to,
         subject: template.subject
       });
@@ -101,5 +48,4 @@ export const emailService = {
   }
 };
 
-// Export individual methods for convenience
 export const { sendEmail, sendOTP, sendWelcomeEmail } = emailService;

@@ -1,57 +1,53 @@
-import nodemailer from 'nodemailer';
+import { MailtrapClient } from 'mailtrap';
 import { getOTPTemplate, getWelcomeTemplate, getPaymentInitiatedTemplate, getPaymentSuccessTemplate, getPaymentFailedTemplate } from '../templates/emailTemplates.js';
 import logger from '../utils/logger.js';
 
+const client = new MailtrapClient({ token: process.env.MAILTRAP_TOKEN });
 
+export const initEmailService = async () => {
+  const tokenPresent = Boolean(process.env.MAILTRAP_TOKEN);
+  const fromEmail = process.env.EMAIL_FROM || 'hello@mimiskitchenuk.com';
 
+  if (!tokenPresent) {
+    logger.error('Mail service init failed: MAILTRAP_TOKEN is missing');
+    return;
+  }
 
- const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.zoho.com',
-    port: Number(process.env.EMAIL_PORT) || 587,
-    secure: process.env.EMAIL_PORT === '465', // true for 465, false for 587
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
-    },
-    debug: true, // Enable debug logging
-    logger: true, // Enable detailed logging
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 10000, // 10 seconds
-    socketTimeout: 30000, // 30 seconds
-    headers: {
-      'X-Sender-Name': "Mimi's Kitchen",
-      'X-Priority': '3'
-    },
-    tls: {
-      rejectUnauthorized: true, // Changed to true for security
-      minVersion: 'TLSv1.2' // Ensure modern TLS
+  logger.info(`✉️ Mail service configured. Sender: ${fromEmail}`);
+
+  // Optional smoke test: send one email on startup when explicitly enabled
+  if (process.env.MAIL_SMOKE_TEST === '1' && process.env.MAIL_SMOKE_TEST_RECIPIENT) {
+    try {
+      await client.send({
+        from: { email: fromEmail, name: "Mimi's Kitchen" },
+        to: [{ email: process.env.MAIL_SMOKE_TEST_RECIPIENT }],
+        subject: 'Mail service health check',
+        text: 'This is a startup health-check email from Mimi\'s Kitchen.',
+        category: 'HealthCheck'
+      });
+      logger.info('✅ Mail service health check sent successfully');
+    } catch (err) {
+      logger.error('❌ Mail service health check failed:', { error: err.message });
     }
-  });
-
+  }
+};
 
 export const sendEmail = async ({ to, subject, html }) => {
   try {
-    const mailOptions = {
-      from: process.env.EMAIL_FROM,
-      to,
+    const fromEmail = process.env.EMAIL_FROM || 'hello@mimiskitchenuk.com';
+    const payload = {
+      from: { email: fromEmail, name: "Mimi's Kitchen" },
+      to: [{ email: to }],
       subject,
-      html
+      html,
+      category: 'Transactional'
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    logger.info('Email sent successfully:', {
-      messageId: info.messageId,
-      to,
-      subject
-    });
-
+    const info = await client.send(payload);
+    logger.info('Email sent successfully:', { to, subject });
     return info;
   } catch (error) {
-    logger.error('Email sending failed:', {
-      error: error.message,
-      to,
-      subject
-    });
+    logger.error('Email sending failed:', { error: error.message, to, subject });
     throw error;
   }
 };
@@ -64,10 +60,7 @@ export const sendOTPEmail = async (email, otp, fullName) => {
       html: getOTPTemplate(otp, fullName)
     });
   } catch (error) {
-    logger.error('OTP email sending failed:', {
-      error: error.message,
-      email
-    });
+    logger.error('OTP email sending failed:', { error: error.message, email });
     throw new Error('Failed to send OTP email');
   }
 };
@@ -76,14 +69,11 @@ export const sendWelcomeEmail = async (email, fullName) => {
   try {
     return await sendEmail({
       to: email,
-      subject: 'Welcome to Mimi\'s Kitchen!',
+      subject: "Welcome to Mimi's Kitchen!",
       html: getWelcomeTemplate(fullName)
     });
   } catch (error) {
-    logger.error('Welcome email sending failed:', {
-      error: error.message,
-      email
-    });
+    logger.error('Welcome email sending failed:', { error: error.message, email });
     // Don't throw error for welcome email as it's not critical
     logger.warn('Welcome email failed but continuing user flow');
   }
@@ -119,12 +109,3 @@ export const sendPaymentEmail = async (type, order) => {
     // Don't throw error to prevent blocking payment flow
   }
 };
-
-// Test email connection on service start
-transporter.verify((error, success) => {
-  if (error) {
-    logger.error('Email service verification failed:', error);
-  } else {
-    logger.info('Email service is ready to send messages');
-  }
-});
