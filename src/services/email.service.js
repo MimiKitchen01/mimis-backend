@@ -44,10 +44,16 @@ export const sendEmail = async ({ to, subject, html }) => {
     };
 
     const info = await client.send(payload);
-    logger.info('Email sent successfully:', { to, subject });
+    logger.info('Email sent successfully:', { to, subject, response: info });
     return info;
   } catch (error) {
-    logger.error('Email sending failed:', { error: error.message, to, subject });
+    logger.error('Email sending failed:', {
+      error: error.message,
+      to,
+      subject,
+      status: error?.response?.status,
+      data: error?.response?.data
+    });
     throw error;
   }
 };
