@@ -84,8 +84,11 @@ export const loginUser = async (email, password, role = 'user') => {
     throw new Error('Please verify your email first');
   }
 
-  const { token } = await generateAuthTokens(user);
+  if (!user.isActive) {
+    throw new Error('Account is deactivated');
+  }
 
+  const { token } = await generateAuthTokens(user);
   return {
     user,
     token

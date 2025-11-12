@@ -143,7 +143,8 @@ const userSchema = new mongoose.Schema({
   },
 
   lastLogin: Date,
-  loginAttempts: { type: Number, default: 0 }
+  loginAttempts: { type: Number, default: 0 },
+  deletedAt: { type: Date, default: null }
 }, {
   timestamps: true
 });
@@ -152,6 +153,7 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ email: 1 });
 userSchema.index({ 'google.id': 1 });
 userSchema.index({ role: 1 });
+userSchema.index({ isActive: 1, deletedAt: 1 });
 
 // Password hashing middleware
 userSchema.pre('save', async function (next) {

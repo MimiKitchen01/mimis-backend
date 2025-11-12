@@ -133,3 +133,25 @@ export const updateProfileImage = async (req, res) => {
     });
   }
 };
+
+export const softDeleteAccount = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+
+    if (!user.isActive) {
+      return res.status(200).json({ message: 'Account does not exist' });
+    }
+
+    user.isActive = false;
+    user.deletedAt = new Date();
+    await user.save();
+
+    res.json({ message: 'Account deleted successfully' });
+  } catch (error) {
+    logger.error('Error in softDeleteAccount:', error);
+    res.status(error.statusCode || 400).json({ message: error.message });
+  }
+};

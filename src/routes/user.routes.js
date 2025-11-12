@@ -125,4 +125,20 @@ router.patch('/profile', auth, userController.updateProfile);
  */
 router.patch('/password', auth, userController.updatePassword);
 
+/**
+ * @swagger
+ * /api/users/me:
+ *   delete:
+ *     summary: Deactivate (soft delete) current user account
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Account deactivated successfully
+ *       401:
+ *         description: Authentication required or account deactivated
+ */
+router.delete('/me', auth, userController.softDeleteAccount);
+
 export default router;

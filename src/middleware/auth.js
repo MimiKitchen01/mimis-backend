@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import chalk from 'chalk';
 import logger from '../utils/logger.js';
-
+import User from '../models/user.model.js';
 // Change to default export
 const auth = async (req, res, next) => {
   try {
@@ -17,6 +17,13 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Ensure account exists and is active
+    const user = await User.findById(decoded.userId).select('_id isActive');
+    if (!user || !user.isActive) {
+      throw new Error('Account is deactivated');
+    }
+
     req.user = decoded;
     next();
   } catch (error) {
