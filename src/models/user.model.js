@@ -22,14 +22,7 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, 'Password is required'],
-    minlength: [6, 'Password must be at least 6 characters long'],
-    validate: {
-      validator: function (v) {
-        // Password not required for social auth
-        return this.google.id ? true : Boolean(v);
-      },
-      message: 'Password is required for email registration'
-    }
+    minlength: [6, 'Password must be at least 6 characters long']
   },
   fullName: {
     type: String,
@@ -114,15 +107,7 @@ const userSchema = new mongoose.Schema({
     expiresAt: Date
   },
 
-  // Social Auth
-  google: {
-    id: String,
-    email: String,
-    name: String,
-    picture: String,
-    accessToken: String,
-    refreshToken: String
-  },
+
 
   // Preferences
   preferences: {
@@ -149,11 +134,14 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes
-userSchema.index({ email: 1 });
-userSchema.index({ 'google.id': 1 });
-userSchema.index({ role: 1 });
-userSchema.index({ isActive: 1, deletedAt: 1 });
+// Indexes for performance optimization
+userSchema.index({ email: 1 }); // Existing
+userSchema.index({ email: 1, isActive: 1 }); // Compound index for active user lookups
+userSchema.index({ role: 1, isActive: 1 }); // Compound index for role-based queries
+userSchema.index({ createdAt: -1 }); // For sorting by registration date
+userSchema.index({ isActive: 1, deletedAt: 1 }); // Existing
+userSchema.index({ 'otp.expiresAt': 1 }, { expireAfterSeconds: 0 }); // TTL index to auto-delete expired OTPs
+userSchema.index({ 'resetOTP.expiresAt': 1 }, { expireAfterSeconds: 0 }); // TTL index for reset OTPs
 
 // Password hashing middleware
 userSchema.pre('save', async function (next) {

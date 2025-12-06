@@ -2,7 +2,7 @@ console.log('Loading auth routes for Swagger documentation');
 import express from 'express';
 import * as authController from '../controllers/auth.controller.js';
 import auth from '../middleware/auth.js';  // Now correctly importing default export
-import passport from 'passport';
+
 
 /**
  * @swagger
@@ -84,7 +84,31 @@ router.post('/register', authController.register);
  *                 type: string
  *     responses:
  *       200:
- *         description: Email verified successfully
+ *         description: Email verified successfully, user is automatically logged in
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Email verified successfully
+ *                 token:
+ *                   type: string
+ *                   description: JWT token for authentication (90-day expiry)
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     fullName:
+ *                       type: string
+ *                     role:
+ *                       type: string
+ *                     imageUrl:
+ *                       type: string
  *       400:
  *         description: Invalid or expired OTP
  */
@@ -224,35 +248,6 @@ router.post('/reset-password', authController.resetPassword);
  */
 router.post('/verify-reset-otp', authController.verifyResetOTP);
 
-/**
- * @swagger
- * /api/auth/google:
- *   get:
- *     summary: Authenticate with Google
- *     tags: [Authentication]
- */
-router.get('/google',
-  passport.authenticate('google', { 
-    scope: ['profile', 'email'],
-    session: false 
-  })
-);
 
-/**
- * @swagger
- * /api/auth/google/callback:
- *   get:
- *     summary: Google auth callback
- *     tags: [Authentication]
- */
-router.get('/google/callback',
-  passport.authenticate('google', { 
-    failureRedirect: '/api/auth/google/failure',
-    session: false
-  }),
-  authController.googleAuthSuccess
-);
-
-router.get('/google/failure', authController.googleAuthFailure);
 
 export default router;

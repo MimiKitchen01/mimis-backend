@@ -47,7 +47,11 @@ export const verifyUserOTP = async (email, otp) => {
   user.isVerified = true;
   user.otp = undefined;
   await user.save();
-  return user;
+
+  // Generate token for auto-login
+  const { token } = await generateAuthTokens(user);
+
+  return { user, token };
 };
 
 const generateAuthTokens = async (user) => {

@@ -100,6 +100,15 @@ const orderSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Indexes for performance optimization
+orderSchema.index({ orderNumber: 1 }, { unique: true }); // Unique index for order number lookups
+orderSchema.index({ user: 1, createdAt: -1 }); // Compound index for user's orders sorted by date
+orderSchema.index({ user: 1, status: 1 }); // Compound index for filtering user's orders by status
+orderSchema.index({ status: 1, createdAt: -1 }); // For admin dashboard - orders by status and date
+orderSchema.index({ paymentStatus: 1 }); // For payment status filtering
+orderSchema.index({ createdAt: -1 }); // For sorting all orders by date
+orderSchema.index({ 'items.product': 1 }); // For product-based order queries
+
 // Add pre-save hook for status history
 orderSchema.pre('save', function (next) {
   if (this.isModified('status')) {

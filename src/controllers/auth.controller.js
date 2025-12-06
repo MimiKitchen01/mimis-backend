@@ -30,9 +30,25 @@ export const register = async (req, res) => {
 
 export const verifyOTP = async (req, res) => {
   try {
-    const user = await authService.verifyUserOTP(req.body.email, req.body.otp);
-    await emailService.sendWelcomeEmail(user.email, user.fullName);
-    res.json({ message: 'Email verified successfully' });
+    const { user, token } = await authService.verifyUserOTP(req.body.email, req.body.otp);
+
+    // Send welcome email asynchronously (non-blocking)
+    emailService.sendWelcomeEmail(user.email, user.fullName).catch(err => {
+      logger.error('Welcome email failed:', err);
+    });
+
+    // Return token and user data for auto-login
+    res.json({
+      message: 'Email verified successfully',
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+        imageUrl: user.imageUrl
+      }
+    });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -90,7 +106,7 @@ export const forgotPassword = async (req, res) => {
 
     logger.info(chalk.blue('📧 Generated OTP:'), chalk.cyan(resetOTP));
 
-  // Send OTP email
+    // Send OTP email
     await emailService.sendEmail({
       to: user.email,
       subject: 'Password Reset OTP',
@@ -170,32 +186,4 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-export const googleAuthSuccess = async (req, res) => {
-  try {
-    const token = jwt.sign(
-      { userId: req.user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
 
-    res.json({
-      message: 'Google authentication successful',
-      token,
-      user: {
-        id: req.user._id,
-        email: req.user.email,
-        fullName: req.user.fullName,
-        imageUrl: req.user.imageUrl
-      }
-    });
-  } catch (error) {
-    logger.error('Google auth success error:', error);
-    res.status(500).json({ message: 'Authentication failed' });
-  }
-};
-
-export const googleAuthFailure = (req, res) => {
-  res.status(401).json({
-    message: 'Google authentication failed'
-  });
-};

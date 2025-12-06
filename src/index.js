@@ -15,14 +15,33 @@ import orderRoutes from './routes/order.routes.js';
 import reviewRoutes from './routes/review.routes.js';
 import swaggerSpec from './config/swagger.config.js';
 import { requestLogger } from './middleware/logging.middleware.js';
-import passport from 'passport';
-import './config/passport.config.js';
+
 import paymentRoutes from './routes/payment.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import { corsMiddleware, handleCors } from './middleware/cors.middleware.js';
 import { initEmailService } from './services/email.service.js';
+import compression from 'compression';
+import helmet from 'helmet';
+import { apiLimiter, authLimiter, otpLimiter, registerLimiter } from './middleware/rateLimit.middleware.js';
 
 const app = express();
+
+// Security: Helmet should be first
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+}));
 
 // Apply CORS before any other middleware
 app.use(corsMiddleware);
@@ -33,7 +52,7 @@ app.options('*', (req, res) => {
   res.status(200).end();
 });
 
-// Add security headers
+// Add custom security headers
 app.use((req, res, next) => {
   res.header('X-Content-Type-Options', 'nosniff');
   res.header('X-Frame-Options', 'DENY');
@@ -41,12 +60,24 @@ app.use((req, res, next) => {
   next();
 });
 
+// Response compression - compress all responses
+app.use(compression({
+  level: 6, // Compression level (0-9)
+  threshold: 1024, // Only compress responses > 1KB
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  },
+}));
+
 // Request logging middleware
 app.use(requestLogger);
 
 // Middleware
 app.use(express.json());
-app.use(passport.initialize());
+
 
 // Increase payload size limits
 app.use(express.json({ limit: '40mb' }));
@@ -59,10 +90,16 @@ app.get('/swagger.json', (req, res) => {
   res.send(swaggerSpec);
 });
 
-// Routes
+// Routes with rate limiting
+app.use('/api/', apiLimiter); // Apply general rate limit to all API routes
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', registerLimiter);
+app.use('/api/auth/verify-otp', otpLimiter);
+app.use('/api/auth/verify-reset-otp', otpLimiter);
+
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/addresses', addressRouter); // Use the named import
+app.use('/api/addresses', addressRouter);
 app.use('/api/products', productRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/orders', orderRoutes);
