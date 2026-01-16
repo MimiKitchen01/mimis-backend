@@ -2,6 +2,8 @@ import User from '../models/user.model.js';
 import jwt from 'jsonwebtoken';
 import chalk from 'chalk';
 import logger from '../utils/logger.js';
+import * as notificationService from './notification.service.js';
+
 
 export const generateOTP = () => {
   // Generate 5-digit OTP (10000 to 99999)
@@ -67,22 +69,17 @@ const generateAuthTokens = async (user) => {
   };
 };
 
-export const loginUser = async (email, password, role = 'user') => {
+export const loginUser = async (email, password) => {
   logger.info({
-    message: chalk.blue('🔑 Login attempt:'),
-    email: chalk.cyan(email),
-    role: chalk.yellow(role)
+    message: chalk.blue('🔑 Universal login attempt:'),
+    email: chalk.cyan(email)
   });
 
-  const query = { email };
-  if (role === 'admin') {
-    query.role = 'admin';
+  const user = await User.findOne({ email });
+  if (!user || !(await user.comparePassword(password))) {
+    throw new Error('Invalid email or password');
   }
 
-  const user = await User.findOne(query);
-  if (!user || !(await user.comparePassword(password))) {
-    throw new Error(`Invalid ${role} credentials`);
-  }
 
   if (!user.isVerified) {
     throw new Error('Please verify your email first');
@@ -93,8 +90,17 @@ export const loginUser = async (email, password, role = 'user') => {
   }
 
   const { token } = await generateAuthTokens(user);
+
+  // Trigger login notification
+  notificationService.sendPushNotification(user._id, {
+    title: 'Login Alert',
+    body: `New login detected on your account at ${new Date().toLocaleTimeString()}`,
+    data: { type: 'login_alert' }
+  }).catch(err => logger.error('Login notification failed:', err));
+
   return {
     user,
     token
   };
 };
+

@@ -15,9 +15,9 @@ export const getNotifications = async (req, res) => {
     });
   } catch (error) {
     logger.error(chalk.red('Failed to fetch notifications:'), error);
-    res.status(500).json({ 
+    res.status(500).json({
       status: 'error',
-      message: error.message 
+      message: error.message
     });
   }
 };
@@ -147,5 +147,56 @@ export const clearAllReadNotifications = async (req, res) => {
       status: 'error',
       message: error.message
     });
+  }
+};
+
+export const updateFCMToken = async (req, res) => {
+  try {
+    const { token, action = 'add' } = req.body;
+    if (!token) {
+      res.status(400).json({ status: 'error', message: 'FCM token is required' });
+      return;
+    }
+
+    const tokens = await notificationService.updateFCMToken(
+      req.user.userId,
+      token,
+      action
+    );
+
+    res.json({
+      status: 'success',
+      message: `Token ${action === 'remove' ? 'removed' : 'added'} successfully`,
+      tokens
+    });
+  } catch (error) {
+    logger.error(chalk.red('Failed to update FCM token:'), error);
+    res.status(error.statusCode || 500).json({
+      status: 'error',
+      message: error.message
+    });
+  }
+};
+
+export const testPushToUser = async (req, res) => {
+  try {
+    const { userId, title, body, data } = req.body;
+    const response = await notificationService.sendPushNotification(userId || req.user.userId, {
+      title: title || 'Mimi\'s Kitchen Test',
+      body: body || 'This is a test notification to verify your connection',
+      data: data || { test: 'true' }
+    });
+
+    res.json({
+      status: 'success',
+      message: 'Push test triggered',
+      tokenCount: response?.responses?.length || 0,
+      successCount: response?.successCount || 0,
+      failureCount: response?.failureCount || 0,
+      details: response?.responses?.map(r => r.success ? 'success' : r.error?.message)
+    });
+  } catch (error) {
+    logger.error('Push test failed:', error);
+    res.status(500).json({ status: 'error', message: error.message });
   }
 };

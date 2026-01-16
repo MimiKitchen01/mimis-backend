@@ -129,6 +129,7 @@ const userSchema = new mongoose.Schema({
 
   lastLogin: Date,
   loginAttempts: { type: Number, default: 0 },
+  fcmTokens: [String],
   deletedAt: { type: Date, default: null }
 }, {
   timestamps: true

@@ -4,29 +4,38 @@ import logger from '../utils/logger.js';
 export const requestLogger = (req, res, next) => {
   const start = Date.now();
 
-  logger.info({
-    message: chalk.blue('→ Incoming Request:'),
-    details: {
-      method: chalk.yellow(req.method),
-      path: chalk.cyan(req.path),
-      query: chalk.gray(JSON.stringify(req.query))
+  const logDetails = {
+    method: req.method,
+    path: req.path,
+    query: JSON.stringify(req.query)
+  };
+
+  if (req.method !== 'GET' && req.body) {
+    // Don't log sensitive info like passwords
+    if (req.path.includes('login') || req.path.includes('register')) {
+      logDetails.body = '{ sensitive data }';
+    } else {
+      logDetails.body = JSON.stringify(req.body);
     }
+  }
+
+  logger.info({
+    message: '→ Incoming Request',
+    details: logDetails
   });
+
 
   res.on('finish', () => {
     const duration = Date.now() - start;
     const status = res.statusCode;
-    const statusColor = status >= 500 ? chalk.red : 
-                       status >= 400 ? chalk.yellow : 
-                       status >= 300 ? chalk.cyan : 
-                       chalk.green;
 
     logger.info({
-      message: chalk.blue('← Outgoing Response:'),
+      message: '← Outgoing Response',
       details: {
-        status: statusColor(status),
-        duration: chalk.magenta(`${duration}ms`),
-        path: chalk.cyan(req.path)
+        status: status,
+        duration: `${duration}ms`,
+        path: req.path,
+        method: req.method
       }
     });
   });

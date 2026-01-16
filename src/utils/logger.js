@@ -27,35 +27,52 @@ const consoleFormat = printf(({ level, message, timestamp, ...meta }) => {
   };
 
   const colorize = levelColors[level] || chalk.white;
-  const timeString = chalk.gray(timestamp);
-  
-  // Better object formatting
-  const formatObject = (obj) => {
-    if (typeof obj === 'object' && obj !== null) {
-      try {
-        return JSON.stringify(obj, getCircularReplacer(), 2)
-          .split('\n')
-          .map(line => chalk.cyan(line))
-          .join('\n');
-      } catch (error) {
-        return chalk.red('[Unable to stringify object]');
-      }
+  const timeString = chalk.gray(new Date(timestamp).toLocaleTimeString());
+
+  // Header: [Time] LEVEL
+  let output = `${timeString} ${colorize(level.toUpperCase().padEnd(7))}`;
+
+  // If message is a string, add it. If it's an object, check for special types.
+  if (typeof message === 'string') {
+    output += ` ${message}`;
+  }
+
+  // Handle Metadata (especially from middleware)
+  if (meta.details) {
+    const { method, path, status, duration, query, body } = meta.details;
+    if (method && path) {
+      const statusStr = status ? ` [${status}]` : '';
+      const durationStr = duration ? ` (${duration})` : '';
+      const queryStr = query && query !== '{}' ? ` ?${query}` : '';
+      const bodyStr = body ? `\n  Body: ${chalk.gray(body)}` : '';
+      output += ` ${chalk.bold(method)} ${chalk.cyan(path)}${queryStr}${chalk.green(statusStr)}${chalk.magenta(durationStr)}${bodyStr}`;
     }
-    return obj;
-  };
+    delete meta.details;
+  }
 
-  // Format message or object
-  const formattedMessage = typeof message === 'object' 
-    ? formatObject(message)
-    : message;
 
-  // Format metadata
-  const metaString = Object.keys(meta).length 
-    ? '\n' + formatObject(meta)
-    : '';
+  // If message was an object and not handled above
+  if (typeof message === 'object' && message !== null) {
+    output += '\n' + JSON.stringify(message, getCircularReplacer(), 2)
+      .split('\n')
+      .map(line => chalk.gray('  ' + line))
+      .join('\n');
+  }
 
-  return `${timeString} ${colorize(level.toUpperCase())} ${formattedMessage}${metaString}`;
+  // Append remaining metadata
+  const remainingMeta = Object.keys(meta).filter(k => k !== 'timestamp');
+  if (remainingMeta.length > 0) {
+    const metaObj = {};
+    remainingMeta.forEach(k => metaObj[k] = meta[k]);
+    output += '\n' + JSON.stringify(metaObj, getCircularReplacer(), 2)
+      .split('\n')
+      .map(line => chalk.gray('  ' + line))
+      .join('\n');
+  }
+
+  return output;
 });
+
 
 // Create the logger
 const logger = createLogger({
@@ -70,12 +87,12 @@ const logger = createLogger({
         consoleFormat
       )
     }),
-    new transports.File({ 
-      filename: 'logs/error.log', 
-      level: 'error' 
+    new transports.File({
+      filename: 'logs/error.log',
+      level: 'error'
     }),
-    new transports.File({ 
-      filename: 'logs/combined.log' 
+    new transports.File({
+      filename: 'logs/combined.log'
     })
   ]
 });

@@ -123,4 +123,42 @@ router.patch('/:id/read', auth, notificationController.markNotificationAsRead);
  */
 router.delete('/:id', auth, notificationController.deleteNotification);
 
+/**
+ * @swagger
+ * /api/notifications/fcm-token:
+ *   post:
+ *     summary: Register or unregister an FCM token
+ *     tags: [Notifications]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token]
+ *             properties:
+ *               token:
+ *                 type: string
+ *               action:
+ *                 type: string
+ *                 enum: [add, remove]
+ *                 default: add
+ */
+router.post('/fcm-token', auth, notificationController.updateFCMToken);
+
+/**
+ * @swagger
+ * /api/notifications/test-push:
+ *   post:
+ *     summary: Send a test push notification to a user
+ *     tags: [Notifications]
+ *     security:
+ *       - BearerAuth: []
+ */
+router.post('/test-push', auth, notificationController.testPushToUser);
+
+
 export default router;
+

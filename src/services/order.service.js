@@ -77,6 +77,21 @@ export const createOrder = async (userId, addressId = null) => {
     orderId: order._id
   });
 
+  await notificationService.sendPushNotification(userId, {
+    title: 'Order Created',
+    body: `Your order #${order.orderNumber} has been created successfully.`,
+    data: { orderId: order._id.toString() }
+  });
+
+  // Notify Admins
+  await notificationService.notifyAdmins({
+    title: 'New Order Received',
+    body: `Order #${order.orderNumber} has been placed by ${order.user.fullName || 'a customer'}.`,
+    data: { orderId: order._id.toString(), type: 'new_order' }
+  });
+
+
+
   return order.populate(['items.product', 'deliveryAddress', 'user']);
 };
 
@@ -192,10 +207,10 @@ export const updatePaymentStatus = async (orderId, paymentStatus, adminId) => {
 
   // Map payment status to history status
   const historyStatus = `payment_${paymentStatus}`;
-  
+
   // Update payment status
   order.paymentStatus = paymentStatus;
-  
+
   // Add to status history
   order.statusHistory.push({
     status: order.status, // Keep the current order status
@@ -412,3 +427,47 @@ const transformOrdersForResponse = (orders) => {
     updatedAt: order.updatedAt
   }));
 };
+
+const sendOrderConfirmation = async (order) => {
+  const userId = order.user?._id || order.user;
+  const title = 'Order Confirmed';
+  const body = `Your order #${order.orderNumber} has been confirmed.`;
+
+  await notificationService.createNotification({
+    user: userId,
+    title,
+    message: body,
+    type: 'order',
+    orderId: order._id
+  });
+
+  await notificationService.sendPushNotification(userId, {
+    title,
+    body,
+    data: { orderId: order._id.toString() }
+  });
+};
+
+const sendOrderStatusNotification = async (order) => {
+  const userId = order.user?._id || order.user;
+  const title = 'Order Status Updated';
+  const body = `Your order #${order.orderNumber} is now ${order.status}.`;
+
+  await notificationService.createNotification({
+    user: userId,
+    title,
+    message: body,
+    type: 'order',
+    orderId: order._id
+  });
+
+  await notificationService.sendPushNotification(userId, {
+    title,
+    body,
+    data: {
+      orderId: order._id.toString(),
+      status: order.status
+    }
+  });
+};
+

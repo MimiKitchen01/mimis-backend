@@ -72,16 +72,14 @@ app.use(compression({
   },
 }));
 
+// Middleware
+app.use(express.json({ limit: '40mb' }));
+app.use(express.urlencoded({ limit: '40mb', extended: true }));
+
 // Request logging middleware
 app.use(requestLogger);
 
-// Middleware
-app.use(express.json());
 
-
-// Increase payload size limits
-app.use(express.json({ limit: '40mb' }));
-app.use(express.urlencoded({ limit: '40mb', extended: true }));
 
 // Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
