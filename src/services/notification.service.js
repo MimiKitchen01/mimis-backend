@@ -118,6 +118,21 @@ export const clearAllReadNotifications = async (userId) => {
  * FCM Push Notification Logic
  */
 
+const isValidFCMToken = (token) => {
+  // Real FCM tokens are usually long and contains specific characters (like : or -)
+  // We want to block the 64-char hex strings that were causing issues
+  if (!token || typeof token !== 'string') return false;
+
+  // Reject simple hex strings (common mistake with device IDs or legacy push tokens)
+  if (/^[a-f0-9]{64}$/i.test(token)) return false;
+
+  // Basic length check (FCM tokens are generally > 100 chars)
+  if (token.length < 30) return false;
+
+  return true;
+};
+
+
 export const updateFCMToken = async (userId, token, action = 'add') => {
   try {
     const user = await User.findById(userId);
@@ -132,7 +147,13 @@ export const updateFCMToken = async (userId, token, action = 'add') => {
     }
 
     if (action === 'add') {
+      if (!isValidFCMToken(token)) {
+        logger.warn(`Rejected malformed FCM token for user ${userId}: ${token.substring(0, 10)}...`);
+        throw new ApiError(400, 'Invalid FCM token format');
+      }
+
       if (!user.fcmTokens.includes(token)) {
+
         user.fcmTokens.push(token);
         await user.save();
         logger.info(`Added FCM token for user ${userId}. Total tokens: ${user.fcmTokens.length}`);
@@ -213,11 +234,13 @@ export const sendPushNotification = async (userId, { title, body, data = {} }) =
           const error = res.error?.message || 'Unknown error';
           logger.warn(`Push failed for token ${token.substring(0, 10)}... : ${error}`);
 
-          // Only remove if it's a permanent failure (invalid or unregistered token)
+          // Only remove if it's a permanent failure
           if (res.error?.code === 'messaging/invalid-registration-token' ||
-            res.error?.code === 'messaging/registration-token-not-registered') {
+            res.error?.code === 'messaging/registration-token-not-registered' ||
+            res.error?.code === 'messaging/invalid-argument') {
             failedTokens.push(token);
           }
+
         }
       });
 
