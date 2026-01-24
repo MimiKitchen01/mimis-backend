@@ -232,14 +232,18 @@ export const sendPushNotification = async (userId, { title, body, data = {} }) =
         if (!res.success) {
           const token = user.fcmTokens[idx];
           const error = res.error?.message || 'Unknown error';
-          logger.warn(`Push failed for token ${token.substring(0, 10)}... : ${error}`);
+          const errorCode = res.error?.code || 'unknown';
+          logger.warn(`Push failed for token ${token.substring(0, 10)}... : [${errorCode}] ${error}`);
+
 
           // Only remove if it's a permanent failure
           if (res.error?.code === 'messaging/invalid-registration-token' ||
             res.error?.code === 'messaging/registration-token-not-registered' ||
-            res.error?.code === 'messaging/invalid-argument') {
+            res.error?.code === 'messaging/invalid-argument' ||
+            res.error?.code === 'messaging/third-party-auth-error') {
             failedTokens.push(token);
           }
+
 
         }
       });

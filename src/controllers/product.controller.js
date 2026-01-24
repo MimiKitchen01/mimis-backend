@@ -56,7 +56,7 @@ export const createProduct = async (req, res) => {
     }
 
     const product = await Product.create(productData);
-    
+
     // Populate category details in response
     await product.populate('category');
 
@@ -133,9 +133,9 @@ export const getAllProducts = async (req, res) => {
     });
   } catch (error) {
     logger.error('Error in getAllProducts:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Error fetching products',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -146,8 +146,9 @@ export const getProduct = async (req, res) => {
       productId: chalk.cyan(req.params.id)
     });
 
-    // Get product with reviews
-    const product = await Product.findById(req.params.id);
+    // Get product with reviews and category details
+    const product = await Product.findById(req.params.id)
+      .populate('category', 'name');
     if (!product) {
       throw new ApiError(404, 'Product not found');
     }
@@ -203,7 +204,7 @@ export const getProduct = async (req, res) => {
               hasMore: page < Math.ceil(totalReviews / limit)
             },
             stats: {
-              averageRating: reviewStats.length > 0 ? 
+              averageRating: reviewStats.length > 0 ?
                 Math.round(reviewStats[0].averageRating * 10) / 10 : 0,
               totalReviews,
               distribution: ratingDistribution
@@ -226,7 +227,7 @@ export const getProduct = async (req, res) => {
       stack: error.stack
     });
 
-    res.status(error.statusCode || 404).json({ 
+    res.status(error.statusCode || 404).json({
       status: 'error',
       message: error.message
     });
@@ -359,7 +360,7 @@ export const getAllProductsForAdmin = async (req, res) => {
       Product.countDocuments(filter)
     ]);
 
-    
+
     res.json({
       count: products.length,
       total,
@@ -504,9 +505,9 @@ export const getRandomProducts = async (req, res) => {
     });
   } catch (error) {
     logger.error('Error getting random products:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       status: 'error',
-      message: error.message 
+      message: error.message
     });
   }
 };
@@ -514,7 +515,7 @@ export const getRandomProducts = async (req, res) => {
 export const getMostOrderedProducts = async (req, res) => {
   try {
     const { category, tags, isPopular, search, limit = 6 } = req.query;
-    
+
     logger.info('Getting most ordered products with filters:', {
       category, tags, isPopular, search, limit
     });
@@ -541,7 +542,7 @@ export const getMostOrderedProducts = async (req, res) => {
     const products = await Product.aggregate([
       { $match: matchCondition },
       {
-        $sort: { 
+        $sort: {
           orderCount: -1,
           'ratings.average': -1
         }
@@ -572,9 +573,9 @@ export const getMostOrderedProducts = async (req, res) => {
     });
   } catch (error) {
     logger.error('Error getting most ordered products:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       status: 'error',
-      message: error.message 
+      message: error.message
     });
   }
 };
@@ -639,7 +640,7 @@ export const getProductAdmin = async (req, res) => {
       stack: error.stack
     });
 
-    res.status(error.statusCode || 404).json({ 
+    res.status(error.statusCode || 404).json({
       status: 'error',
       message: error.message
     });
@@ -656,7 +657,7 @@ export const getCategories = async (req, res) => {
       .select('name description sortOrder')
       .lean();
 
-    logger.info(chalk.green('✅ Categories fetched:'), 
+    logger.info(chalk.green('✅ Categories fetched:'),
       chalk.yellow(categories.length)
     );
 
