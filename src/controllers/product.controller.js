@@ -7,6 +7,7 @@ import logger from '../utils/logger.js';
 import chalk from 'chalk'; // Add chalk import
 import * as imageService from '../services/image.service.js';
 import Review from '../models/review.model.js';
+import Order from '../models/order.model.js';
 import mongoose from 'mongoose';
 
 export const createProduct = async (req, res) => {
@@ -122,6 +123,7 @@ export const getAllProducts = async (req, res) => {
 
     // Get products
     const products = await Product.find(filter)
+      .populate('category', 'name')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -353,6 +355,7 @@ export const getAllProductsForAdmin = async (req, res) => {
 
     const [products, total] = await Promise.all([
       Product.find(filter)
+        .populate('category', 'name')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit))
@@ -482,6 +485,15 @@ export const getRandomProducts = async (req, res) => {
       { $match: matchCondition },
       { $sample: { size: 6 } },
       {
+        $lookup: {
+          from: 'categories',
+          localField: 'category',
+          foreignField: '_id',
+          as: 'category'
+        }
+      },
+      { $unwind: '$category' },
+      {
         $project: {
           name: 1,
           description: 1,
@@ -542,6 +554,15 @@ export const getMostOrderedProducts = async (req, res) => {
     const products = await Product.aggregate([
       { $match: matchCondition },
       {
+        $lookup: {
+          from: 'categories',
+          localField: 'category',
+          foreignField: '_id',
+          as: 'category'
+        }
+      },
+      { $unwind: '$category' },
+      {
         $sort: {
           orderCount: -1,
           'ratings.average': -1
@@ -586,7 +607,9 @@ export const getProductAdmin = async (req, res) => {
       productId: chalk.cyan(req.params.id)
     });
 
-    const product = await Product.findById(req.params.id).lean();
+    const product = await Product.findById(req.params.id)
+      .populate('category', 'name')
+      .lean();
     if (!product) {
       throw new ApiError(404, 'Product not found');
     }

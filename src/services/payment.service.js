@@ -27,6 +27,9 @@ export const createPaymentIntent = async (order) => {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(order.total * 100), // Convert to cents
       currency: 'gbp',
+      automatic_payment_methods: {
+        enabled: true,
+      },
       metadata: {
         orderId: order._id.toString(),
         orderNumber: order.orderNumber

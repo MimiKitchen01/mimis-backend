@@ -61,7 +61,7 @@ export const createOrder = async (userId, addressId = null) => {
   });
 
   await order.save();
-  await clearCart(userId);
+  // Cart will be cleared upon successful payment
 
   logger.info(chalk.green('✅ Order created successfully:'), {
     orderId: chalk.cyan(order._id),
@@ -121,8 +121,7 @@ export const createOrderWithAddress = async (userId, addressId, paymentMethod) =
 
   await order.save();
 
-  // 3. Clear cart after successful order creation
-  await clearCart(userId);
+  // 3. Cart will be cleared after successful payment
 
   logger.info(chalk.green('✅ Order created:'), chalk.cyan(order._id));
 

@@ -74,24 +74,36 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    // Clear all existing items from cart
-    cart.items = [];
+    // Clear all existing items from cart (REMOVED - now additive)
+    // cart.items = [];
 
-    // Add new items
-    items.forEach(item => {
+    // Add new items additively
+    for (const item of items) {
       const product = productsMap.get(item.productId);
-      cart.items.push({
-        product: item.productId,
-        quantity: item.quantity,
-        price: product.price
-      });
-    });
 
-    // Calculate total using the productsMap with safe discount check
+      const existingItemIndex = cart.items.findIndex(ci => ci.product.toString() === item.productId);
+      if (existingItemIndex > -1) {
+        cart.items[existingItemIndex].quantity += item.quantity;
+      } else {
+        cart.items.push({
+          product: item.productId,
+          quantity: item.quantity,
+          price: product.price
+        });
+      }
+    }
+
+    // Calculate total for ALL items in the cart
+    const allProductIds = cart.items.map(item => item.product.toString());
+    const allProducts = await Product.find({ _id: { $in: allProductIds } });
+    const allProductsMap = new Map(allProducts.map(p => [p._id.toString(), p]));
+
     cart.total = cart.items.reduce((total, item) => {
-      const product = productsMap.get(item.product.toString());
+      const product = allProductsMap.get(item.product.toString());
+      if (!product) return total;
+
       let itemPrice = product.price;
-      
+
       if (product.discount?.isActive && product.discount.type && product.discount.value) {
         if (product.discount.type === 'percentage') {
           itemPrice = product.price * (1 - (product.discount.value / 100));
@@ -114,7 +126,7 @@ export const addToCart = async (req, res) => {
 
     res.json({
       status: 'success',
-      message: 'Cart updated with new items',
+      message: 'Items added to cart',
       data: cart
     });
   } catch (error) {
@@ -133,7 +145,7 @@ export const addToCart = async (req, res) => {
 export const updateCartItem = async (req, res) => {
   try {
     const { productId, quantity } = req.body;
-    
+
     logger.info(chalk.blue('🛒 Cart update request:'), {
       userId: chalk.cyan(req.user.userId),
       productId: chalk.yellow(productId),
@@ -141,8 +153,8 @@ export const updateCartItem = async (req, res) => {
     });
 
     const cart = await cartService.updateCartItem(req.user.userId, productId, quantity);
-    
-    const message = quantity < 1 
+
+    const message = quantity < 1
       ? 'Item removed from cart'
       : 'Cart updated successfully';
 
@@ -164,17 +176,17 @@ export const removeCartItem = async (req, res, next) => {
   try {
     const { productId } = req.params;
     const userId = req.user.userId; // Changed from req.user._id to req.user.userId
-    
+
     logger.info(chalk.blue('🗑️ Attempting to remove item:'), {
       userId: chalk.cyan(userId),
       productId: chalk.yellow(productId)
     });
-    
+
     const cart = await cartService.removeFromCart(userId, productId);
-    res.json({ 
+    res.json({
       status: 'success',
       message: 'Item removed from cart',
-      data: cart 
+      data: cart
     });
   } catch (error) {
     logger.error(chalk.red('Failed to remove item from cart:'), {
@@ -218,6 +230,9 @@ export const getOrders = async (req, res) => {
 
     if (status) {
       query.status = status;
+    } else {
+      // By default, don't show pending orders in the list to keep it clean
+      query.status = { $ne: 'pending' };
     }
 
     const orders = await Order.find(query)
@@ -269,6 +284,10 @@ export const processPayment = async (req, res) => {
     order.status = 'confirmed';
 
     await order.save();
+
+    // Clear the cart after successful payment
+    await cartService.clearCart(req.user.userId);
+
     await order.populate(['items.product', 'deliveryAddress']);
 
     res.json(order);
@@ -281,13 +300,13 @@ export const processPayment = async (req, res) => {
 export const getPaidOrders = async (req, res) => {
   try {
     logger.info(chalk.blue('📋 Fetching paid orders for user:'), chalk.cyan(req.user.userId));
-    
+
     const orders = await Order.find({
       user: req.user.userId,
       paymentStatus: 'completed'
     })
-    .populate(['items.product', 'deliveryAddress'])
-    .sort('-createdAt');
+      .populate(['items.product', 'deliveryAddress'])
+      .sort('-createdAt');
 
     res.json({
       status: 'success',
@@ -296,9 +315,9 @@ export const getPaidOrders = async (req, res) => {
     });
   } catch (error) {
     logger.error(chalk.red('Failed to fetch paid orders:'), chalk.yellow(error.message));
-    res.status(500).json({ 
+    res.status(500).json({
       status: 'error',
-      message: error.message 
+      message: error.message
     });
   }
 };
@@ -306,16 +325,16 @@ export const getPaidOrders = async (req, res) => {
 export const getOngoingOrders = async (req, res) => {
   try {
     logger.info(chalk.blue('📋 Fetching ongoing orders for user:'), chalk.cyan(req.user.userId));
-    
+
     // Get orders that are not in final states (delivered or cancelled)
     const orders = await Order.find({
       user: req.user.userId,
-      status: { 
-        $in: ['pending', 'confirmed', 'preparing', 'ready'] 
+      status: {
+        $in: ['pending', 'confirmed', 'preparing', 'ready']
       }
     })
-    .populate(['items.product', 'deliveryAddress'])
-    .sort('-createdAt');
+      .populate(['items.product', 'deliveryAddress'])
+      .sort('-createdAt');
 
     res.json({
       status: 'success',
@@ -324,16 +343,16 @@ export const getOngoingOrders = async (req, res) => {
     });
   } catch (error) {
     logger.error(chalk.red('Failed to fetch ongoing orders:'), chalk.yellow(error.message));
-    res.status(500).json({ 
+    res.status(500).json({
       status: 'error',
-      message: error.message 
+      message: error.message
     });
   }
 };
 
 export const getReviewableProducts = async (req, res) => {
   try {
-    logger.info(chalk.blue('🔍 Fetching reviewable products for user:'), 
+    logger.info(chalk.blue('🔍 Fetching reviewable products for user:'),
       chalk.cyan(req.user.userId)
     );
 
