@@ -330,7 +330,7 @@ export const getOngoingOrders = async (req, res) => {
     const orders = await Order.find({
       user: req.user.userId,
       status: {
-        $in: ['pending', 'confirmed', 'preparing', 'ready']
+        $in: ['confirmed', 'preparing', 'ready']
       }
     })
       .populate(['items.product', 'deliveryAddress'])

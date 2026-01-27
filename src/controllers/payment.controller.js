@@ -42,20 +42,14 @@ export const createPaymentSession = async (req, res) => {
     const paymentIntent = await paymentService.createPaymentIntent(order);
 
     // Update order with payment intent details
-    order.payment = {
-      paymentIntentId: paymentIntent.id,
+    order.paymentId = paymentIntent.id;
+    order.paymentStatus = 'pending';
+    order.paymentDetails = {
       amount: order.total,
-      paymentStatus: 'pending',
       currency: 'gbp'
     };
-    await order.save();
 
-    // Send payment initiated email
-    await emailService.sendEmail({
-      to: order.user.email,
-      subject: `Payment Initiated for Order #${order.orderNumber}`,
-      html: getPaymentInitiatedTemplate(order, order.user)
-    });
+    await order.save();
 
     logger.info(chalk.green('✅ Payment session created:'), {
       orderId: chalk.cyan(order._id),
@@ -106,12 +100,13 @@ export const handlePaymentWebhook = async (req, res) => {
 
 const handleSuccessfulPayment = async (paymentIntent) => {
   const order = await Order.findOne({
-    'payment.paymentIntentId': paymentIntent.id
+    paymentId: paymentIntent.id
   });
 
   if (order) {
-    order.payment.paymentStatus = 'completed';
-    order.payment.paidAt = new Date();
+    order.paymentStatus = 'completed';
+    if (!order.paymentDetails) order.paymentDetails = {};
+    order.paymentDetails.paidAt = new Date();
     order.status = 'confirmed';
     await order.save();
   }
@@ -119,11 +114,11 @@ const handleSuccessfulPayment = async (paymentIntent) => {
 
 const handleFailedPayment = async (paymentIntent) => {
   const order = await Order.findOne({
-    'payment.paymentIntentId': paymentIntent.id
+    paymentId: paymentIntent.id
   });
 
   if (order) {
-    order.payment.paymentStatus = 'failed';
+    order.paymentStatus = 'failed';
     await order.save();
   }
 };
@@ -141,19 +136,17 @@ export const confirmPayment = async (req, res) => {
       throw new ApiError(404, 'Order not found');
     }
 
-    // Initialize payment object if it doesn't exist
-    if (!order.payment) {
-      order.payment = {};
-    }
-
     // Update order status and save
-    order.payment = {
-      ...order.payment,
-      paymentStatus: status,
-      paidAt: new Date()
-    };
+    order.paymentStatus = status;
+    if (!order.paymentDetails) {
+      order.paymentDetails = {
+        amount: order.total,
+        currency: 'gbp'
+      };
+    }
+    order.paymentDetails.paidAt = new Date();
     order.status = 'confirmed';
-    
+
     await order.save();
 
     try {

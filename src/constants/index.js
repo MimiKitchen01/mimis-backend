@@ -28,8 +28,9 @@ export const PRODUCT_CATEGORIES = [
   'Extra Swallow',
   'Protein Menu',
   'Sauce Menu',
+  'Snack Menu',
 
-  
+
 ];
 
 export const ALLERGENS = [
