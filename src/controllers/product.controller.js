@@ -466,7 +466,11 @@ export const getRandomProducts = async (req, res) => {
     const matchCondition = { isAvailable: true };
 
     if (category) {
-      matchCondition.category = category;
+      if (mongoose.Types.ObjectId.isValid(category)) {
+        matchCondition.category = new mongoose.Types.ObjectId(category);
+      } else {
+        throw new ApiError(400, 'Invalid category ID');
+      }
     }
     if (tags) {
       matchCondition.tags = { $in: tags.split(',') };
@@ -536,7 +540,11 @@ export const getMostOrderedProducts = async (req, res) => {
     const matchCondition = { isAvailable: true };
 
     if (category) {
-      matchCondition.category = category;
+      if (mongoose.Types.ObjectId.isValid(category)) {
+        matchCondition.category = new mongoose.Types.ObjectId(category);
+      } else {
+        throw new ApiError(400, 'Invalid category ID');
+      }
     }
     if (tags) {
       matchCondition.tags = { $in: tags.split(',') };
