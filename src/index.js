@@ -26,6 +26,9 @@ import { apiLimiter, authLimiter, otpLimiter, registerLimiter } from './middlewa
 
 const app = express();
 
+// Trust proxy for rate limiting (behind Nginx/Load Balancer)
+app.set('trust proxy', 1);
+
 // Security: Helmet should be first
 app.use(helmet({
   contentSecurityPolicy: {

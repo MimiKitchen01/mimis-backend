@@ -139,8 +139,8 @@ const isValidPlatform = (platform) => {
 
 const migrateOldTokenFormat = (tokens) => {
   // Convert old string format tokens to new object format
-  if (!tokens) return [];
-  
+  if (!tokens || !Array.isArray(tokens)) return [];
+
   return tokens.map(t => {
     if (typeof t === 'string') {
       // Old format: string token
@@ -152,9 +152,13 @@ const migrateOldTokenFormat = (tokens) => {
         lastUsed: new Date()
       };
     }
-    // Already in new format
-    return t;
-  });
+    // Already in new format, but ensure it's valid
+    if (t && typeof t === 'object' && t.token) {
+      return t;
+    }
+    // Filter out invalid items later
+    return null;
+  }).filter(t => t !== null);
 };
 
 export const updateFCMToken = async (userId, token, action = 'add', platform = 'android') => {
@@ -176,9 +180,16 @@ export const updateFCMToken = async (userId, token, action = 'add', platform = '
       }
     }
 
-    // Ensure fcmTokens is initialized
-    if (!user.fcmTokens) {
+    // Ensure fcmTokens is initialized and clean
+    if (!user.fcmTokens || !Array.isArray(user.fcmTokens)) {
       user.fcmTokens = [];
+    } else {
+      // Filter out any corrupted entries (missing token) to prevent validation errors
+      const originalCount = user.fcmTokens.length;
+      user.fcmTokens = user.fcmTokens.filter(t => t && (typeof t === 'string' || t.token));
+      if (user.fcmTokens.length !== originalCount) {
+        logger.warn(`🧹 Cleaned up ${originalCount - user.fcmTokens.length} corrupted FCM token entries for user ${userId}`);
+      }
     }
 
     if (!isValidPlatform(platform)) {
@@ -193,7 +204,7 @@ export const updateFCMToken = async (userId, token, action = 'add', platform = '
 
       // Check if token already exists
       const tokenExists = user.fcmTokens.some(t => t.token === token);
-      
+
       if (!tokenExists) {
         user.fcmTokens.push({
           token,
@@ -223,14 +234,17 @@ export const updateFCMToken = async (userId, token, action = 'add', platform = '
     }
 
     // Return simplified token list for response - handle both old and new formats safely
-    return user.fcmTokens.map(t => {
+    return (user.fcmTokens || []).map(t => {
+      if (!t) return null;
       const tokenStr = typeof t === 'string' ? t : t.token;
+      if (!tokenStr) return null;
+
       return {
         token: tokenStr.substring(0, 10) + '...',
         platform: typeof t === 'string' ? 'unknown' : (t.platform || 'unknown'),
         lastUsed: typeof t === 'string' ? null : (t.lastUsed || null)
       };
-    });
+    }).filter(t => t !== null);
   } catch (error) {
     logger.error('Error updating FCM token:', error);
     throw error;
@@ -347,7 +361,7 @@ export const sendPushNotification = async (userId, { title, body, data = {} }) =
         logger.info(`📱 Sending iOS APNs push to ${iosTokens.length} devices...`);
         const iosResponse = await admin.messaging().sendEachForMulticast(iosMessage);
         logger.info(`✅ iOS: ${iosResponse.successCount} sent, ${iosResponse.failureCount} failed`);
-        
+
         totalSuccess += iosResponse.successCount;
         totalFailure += iosResponse.failureCount;
         responses.push({ platform: 'ios', ...iosResponse });
@@ -374,7 +388,7 @@ export const sendPushNotification = async (userId, { title, body, data = {} }) =
         logger.info(`🤖 Sending Android push to ${androidTokens.length} devices...`);
         const androidResponse = await admin.messaging().sendEachForMulticast(androidMessage);
         logger.info(`✅ Android: ${androidResponse.successCount} sent, ${androidResponse.failureCount} failed`);
-        
+
         totalSuccess += androidResponse.successCount;
         totalFailure += androidResponse.failureCount;
         responses.push({ platform: 'android', ...androidResponse });
@@ -401,7 +415,7 @@ export const sendPushNotification = async (userId, { title, body, data = {} }) =
         logger.info(`🌐 Sending Web push to ${webTokens.length} devices...`);
         const webResponse = await admin.messaging().sendEachForMulticast(webMessage);
         logger.info(`✅ Web: ${webResponse.successCount} sent, ${webResponse.failureCount} failed`);
-        
+
         totalSuccess += webResponse.successCount;
         totalFailure += webResponse.failureCount;
         responses.push({ platform: 'web', ...webResponse });
