@@ -1,5 +1,5 @@
 import { MailtrapClient } from 'mailtrap';
-import { getOTPTemplate, getWelcomeTemplate, getPaymentInitiatedTemplate, getPaymentSuccessTemplate, getPaymentFailedTemplate } from '../templates/emailTemplates.js';
+import { getOTPTemplate, getWelcomeTemplate, getPaymentInitiatedTemplate, getPaymentSuccessTemplate, getPaymentFailedTemplate, getAdminOrderNotificationTemplate } from '../templates/emailTemplates.js';
 import logger from '../utils/logger.js';
 
 const client = new MailtrapClient({ token: process.env.MAILTRAP_TOKEN });
@@ -113,5 +113,28 @@ export const sendPaymentEmail = async (type, order) => {
   } catch (error) {
     logger.error(`Failed to send payment ${type} email:`, error);
     // Don't throw error to prevent blocking payment flow
+  }
+};
+export const sendAdminOrderNotification = async (order) => {
+  try {
+    const adminEmails = ['admin@mimiskitchenuk.com', 'marypius94@gmail.com', 'starukido@gmail.com'];
+
+    // Ensure order is populated
+    if (!order.user || typeof order.user === 'string' || !order.deliveryAddress || typeof order.deliveryAddress === 'string') {
+      await order.populate(['user', 'deliveryAddress', 'items.product']);
+    }
+
+    const html = getAdminOrderNotificationTemplate(order, order.user, order.deliveryAddress);
+
+    const promises = adminEmails.map(email => sendEmail({
+      to: email,
+      subject: `🚨 NEW ORDER RECEIVED - #${order.orderNumber}`,
+      html
+    }));
+
+    await Promise.all(promises);
+    logger.info(`Admin order notifications sent for order #${order.orderNumber} to ${adminEmails.join(', ')}`);
+  } catch (error) {
+    logger.error('Failed to send admin order notifications:', error);
   }
 };

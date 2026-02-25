@@ -181,3 +181,44 @@ export const getPaymentFailedTemplate = (order, user) => {
   `;
   return layout({ heading: 'Payment Failed', contentHtml: content });
 };
+export const getAdminOrderNotificationTemplate = (order, user, address) => {
+  const items = (order.items || []).map(item => `
+    <li class="list-item">
+      <span>${item.quantity}× ${item.product?.name || 'Unknown Product'}</span>
+      <span>£${(item.price * item.quantity).toFixed(2)}</span>
+    </li>
+  `).join('');
+
+  const content = `
+    <div class="section">
+      <div style="font-size:18px; font-weight:600; margin-bottom:12px;">New Order Received! 🛒</div>
+      <div style="margin-bottom:16px;">
+        <strong>Order Number:</strong> #${order.orderNumber}<br/>
+        <strong>Order Date:</strong> ${new Date(order.createdAt).toLocaleString()}<br/>
+        <strong>Total Amount:</strong> £${order.total.toFixed(2)}
+      </div>
+
+      <div style="font-size:16px; font-weight:600; margin-bottom:8px; border-top:1px solid #edf2f7; padding-top:12px;">Customer Details</div>
+      <div style="margin-bottom:16px;">
+        <strong>Name:</strong> ${user.fullName || 'N/A'}<br/>
+        <strong>Email:</strong> ${user.email || 'N/A'}<br/>
+        <strong>Phone:</strong> ${user.phoneNumber || 'N/A'}
+      </div>
+
+      <div style="font-size:16px; font-weight:600; margin-bottom:8px; border-top:1px solid #edf2f7; padding-top:12px;">Delivery Address</div>
+      <div style="margin-bottom:16px;">
+        ${address.street || ''}<br/>
+        ${address.city || ''}, ${address.zipCode || ''}<br/>
+        ${address.state || ''} ${address.country || ''}
+      </div>
+
+      <div style="font-size:16px; font-weight:600; margin-bottom:8px; border-top:1px solid #edf2f7; padding-top:12px;">Order Items</div>
+      <ul class="list">${items}</ul>
+      
+      <div style="margin-top:20px; text-align:center;">
+        <a class="button" href="${frontendUrl}/admin/orders/${order._id}">View Order in Admin Panel</a>
+      </div>
+    </div>
+  `;
+  return layout({ heading: 'New Order Alert', contentHtml: content });
+};

@@ -101,14 +101,35 @@ export const handlePaymentWebhook = async (req, res) => {
 const handleSuccessfulPayment = async (paymentIntent) => {
   const order = await Order.findOne({
     paymentId: paymentIntent.id
-  });
+  }).populate(['items.product', 'user', 'deliveryAddress']);
 
-  if (order) {
+  if (order && order.paymentStatus !== 'completed') {
     order.paymentStatus = 'completed';
     if (!order.paymentDetails) order.paymentDetails = {};
     order.paymentDetails.paidAt = new Date();
     order.status = 'confirmed';
     await order.save();
+
+    try {
+      // Send success notification and email
+      await Promise.all([
+        notificationService.createNotification({
+          user: order.user,
+          title: 'Payment Successful',
+          message: `Your payment for order #${order.orderNumber} was successful.`,
+          type: 'payment',
+          orderId: order._id
+        }),
+        emailService.sendEmail({
+          to: order.user.email,
+          subject: `Payment Successful for Order #${order.orderNumber}`,
+          html: getPaymentSuccessTemplate(order, order.user)
+        }),
+        emailService.sendAdminOrderNotification(order)
+      ]);
+    } catch (error) {
+      logger.error('Webhook notification failed:', error);
+    }
   }
 };
 
@@ -134,6 +155,14 @@ export const confirmPayment = async (req, res) => {
 
     if (!order) {
       throw new ApiError(404, 'Order not found');
+    }
+
+    if (order.paymentStatus === 'completed') {
+      return res.json({
+        status: 'success',
+        message: 'Payment already confirmed',
+        order
+      });
     }
 
     // Update order status and save
@@ -163,7 +192,8 @@ export const confirmPayment = async (req, res) => {
           to: order.user.email,
           subject: `Payment Successful for Order #${order.orderNumber}`,
           html: getPaymentSuccessTemplate(order, order.user)
-        })
+        }),
+        emailService.sendAdminOrderNotification(order)
       ]);
     } catch (notifError) {
       // Log notification error but don't fail the payment confirmation
