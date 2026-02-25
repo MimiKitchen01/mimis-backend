@@ -91,12 +91,16 @@ export const loginUser = async (email, password) => {
 
   const { token } = await generateAuthTokens(user);
 
-  // Trigger login notification
-  notificationService.sendPushNotification(user._id, {
-    title: 'Login Alert',
-    body: `New login detected on your account at ${new Date().toLocaleTimeString()}`,
-    data: { type: 'login_alert' }
-  }).catch(err => logger.error('Login notification failed:', err));
+  // Trigger login notification with a intentional delay
+  // This avoids a race condition where the notification is sent before the app 
+  // has a chance to register/update its FCM token after a fresh login.
+  setTimeout(() => {
+    notificationService.sendPushNotification(user._id, {
+      title: 'Login Alert',
+      body: `New login detected on your account at ${new Date().toLocaleTimeString()}`,
+      data: { type: 'login_alert' }
+    }).catch(err => logger.error('Delayed login notification failed:', err));
+  }, 10000); // 10 second delay
 
   return {
     user,

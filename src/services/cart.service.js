@@ -3,6 +3,7 @@ import Product from '../models/product.model.js';
 import { ApiError } from '../middleware/error.middleware.js';
 import logger from '../utils/logger.js';
 import chalk from 'chalk';
+import * as notificationService from './notification.service.js';
 
 export const getOrCreateCart = async (userId) => {
   let cart = await Cart.findOne({ user: userId }).populate('items.product');
@@ -56,7 +57,19 @@ export const addToCart = async (userId, productId, quantity) => {
   }
 
   await cart.save();
-  return cart.populate('items.product');
+  const populatedCart = await cart.populate('items.product');
+
+  // Trigger push notification
+  notificationService.sendPushNotification(userId, {
+    title: 'Item Added to Cart 🛒',
+    body: `${product.name} has been added to your cart.`,
+    data: {
+      type: 'cart_update',
+      productId: productId.toString()
+    }
+  }).catch(err => logger.error('Cart notification failed:', err));
+
+  return populatedCart;
 };
 
 export const updateCartItem = async (userId, productId, quantity) => {
@@ -72,7 +85,7 @@ export const updateCartItem = async (userId, productId, quantity) => {
   }
 
   // Find the item index in the cart
-  const itemIndex = cart.items.findIndex(item => 
+  const itemIndex = cart.items.findIndex(item =>
     item.product.toString() === productId
   );
 
@@ -83,7 +96,7 @@ export const updateCartItem = async (userId, productId, quantity) => {
   // If quantity is less than 1, remove the item
   if (quantity < 1) {
     logger.info(chalk.yellow('🗑️ Removing item from cart due to quantity < 1'));
-    cart.items = cart.items.filter(item => 
+    cart.items = cart.items.filter(item =>
       !item.product.equals(productId)
     );
   } else {
@@ -116,7 +129,7 @@ export const removeFromCart = async (userId, productId) => {
 
   // Remove the item from cart.items array
   cart.items = cart.items.filter(item => !item.product.equals(productId));
-  
+
   await cart.save();
   return cart.populate('items.product');
 };
