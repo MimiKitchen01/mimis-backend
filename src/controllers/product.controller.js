@@ -244,7 +244,8 @@ export const updateProduct = async (req, res, next) => {
 
     logger.info('Update request:', {
       id: req.params.id,
-      body: req.body
+      body: req.body,
+      filesCount: req.files?.length || 0
     });
 
     // Basic validation
@@ -252,7 +253,7 @@ export const updateProduct = async (req, res, next) => {
       throw new ApiError(400, 'Product ID is required');
     }
 
-    // Get existing product
+    // Get existing product to check existence
     const existingProduct = await Product.findById(req.params.id);
     if (!existingProduct) {
       throw new ApiError(404, 'Product not found');
@@ -264,27 +265,65 @@ export const updateProduct = async (req, res, next) => {
     // Handle basic fields
     if (req.body.name) updateData.name = req.body.name.trim();
     if (req.body.price) updateData.price = Number(req.body.price);
-    if (req.body.category) updateData.category = req.body.category;
-    if (req.body.description !== undefined) updateData.description = req.body.description;
+    if (req.body.description !== undefined) updateData.description = req.body.description.trim();
     if (req.body.spicyLevel) updateData.spicyLevel = req.body.spicyLevel;
     if (req.body.preparationTime) updateData.preparationTime = Number(req.body.preparationTime);
 
     // Handle boolean fields
     if (req.body.isAvailable !== undefined) {
-      updateData.isAvailable = req.body.isAvailable === 'true';
+      updateData.isAvailable = req.body.isAvailable === 'true' || req.body.isAvailable === true;
     }
     if (req.body.isPopular !== undefined) {
-      updateData.isPopular = req.body.isPopular === 'true';
+      updateData.isPopular = req.body.isPopular === 'true' || req.body.isPopular === true;
+    }
+    if (req.body.isSpecial !== undefined) {
+      updateData.isSpecial = req.body.isSpecial === 'true' || req.body.isSpecial === true;
+    }
+
+    // Handle Category validation
+    if (req.body.category) {
+      const category = await Category.findById(req.body.category);
+      if (!category) {
+        throw new ApiError(400, 'Invalid category ID');
+      }
+      updateData.category = category._id;
+    }
+
+    // Handle Complex JSON fields
+    const complexJsonFields = ['ingredients', 'allergens', 'dietaryInfo', 'customizationOptions', 'discount'];
+    complexJsonFields.forEach(field => {
+      if (req.body[field]) {
+        try {
+          updateData[field] = typeof req.body[field] === 'string'
+            ? JSON.parse(req.body[field])
+            : req.body[field];
+        } catch (e) {
+          logger.warn(`Failed to parse ${field}:`, req.body[field]);
+          // Fallback if it's already an object or if parsing fails but shouldn't block
+          if (typeof req.body[field] !== 'string') {
+            updateData[field] = req.body[field];
+          }
+        }
+      }
+    });
+
+    // Handle images from req.files (optional during update)
+    if (req.files && req.files.length > 0) {
+      // If new images are uploaded, replace existing ones
+      updateData.imageUrl = req.files[0].location;
+
+      // If there are more than one image, the rest are additional images
+      if (req.files.length > 1) {
+        updateData.additionalImages = req.files.slice(1).map(file => file.location);
+      } else {
+        updateData.additionalImages = []; // Clear additional images if only one new image is provided
+      }
     }
 
     logger.info('Processed update data:', updateData);
 
-    // Update the product
-    const updatedProduct = await Product.findByIdAndUpdate(
-      req.params.id,
-      { $set: updateData },
-      { new: true, runValidators: true }
-    );
+    // Update the product using the service
+    const updatedProduct = await productService.updateProduct(req.params.id, updateData);
 
     res.json({
       status: 'success',

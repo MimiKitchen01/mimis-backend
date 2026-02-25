@@ -1,6 +1,6 @@
 import express from 'express';
 import * as productController from '../controllers/product.controller.js';
-import { uploadProductImages } from '../middleware/upload.middleware.js'; // Changed from uploadToS3
+import { uploadProductImages, updateProductImages } from '../middleware/upload.middleware.js'; // Changed from uploadToS3
 import auth from '../middleware/auth.js';
 import { adminAuth } from '../middleware/admin.middleware.js';
 import multer from 'multer';
@@ -163,9 +163,9 @@ const router = express.Router();
  *       403:
  *         description: Not authorized as admin
  */
-router.post('/', 
-  auth, 
-  adminAuth, 
+router.post('/',
+  auth,
+  adminAuth,
   uploadProductImages, // Changed from uploadToS3.array('images', 8)
   productController.createProduct
 );
@@ -394,10 +394,10 @@ router.patch('/:id/mark-popular', auth, adminAuth, productController.markProduct
  *                 format: json
  *                 example: '{"type":"percentage","value":10,"isActive":true}'
  */
-router.patch('/:id', 
-  auth, 
+router.patch('/:id',
+  auth,
   adminAuth,
-  upload.none(), // Add multer middleware to parse form-data without files
+  updateProductImages,
   productController.updateProduct
 );
 

@@ -6,8 +6,8 @@ import chalk from 'chalk';
 
 export const validateImages = (imageUrl, additionalImages) => {
   const totalImages = 1 + (additionalImages?.length || 0);
-  if (totalImages < 2) {
-    throw new Error('Product must have at least 2 images');
+  if (totalImages < 1) {
+    throw new Error('Product must have at least 1 image');
   }
   if (totalImages > 8) {
     throw new Error('Product cannot have more than 8 images');
@@ -32,12 +32,12 @@ export const getProducts = async (filter = {}) => {
       message: chalk.blue('🔍 Fetching products:'),
       filter: chalk.cyan(JSON.stringify(filter))
     });
-    
+
     const products = await Product.find(filter)
       .sort({ createdAt: -1 });
 
     logger.info(`Found ${products.length} products`);
-    
+
     return products;
   } catch (error) {
     logger.error('Error in getProducts service:', {
@@ -51,14 +51,14 @@ export const getProducts = async (filter = {}) => {
 export const getProductById = async (id) => {
   try {
     logger.info('Fetching product by ID:', id);
-    
+
     const product = await Product.findById(id);
-    
+
     if (!product) {
       logger.error('Product not found:', { id });
       throw new ApiError(404, 'Product not found');
     }
-    
+
     logger.info('Product found:', { id: product._id, name: product.name });
     return product;
   } catch (error) {
@@ -72,7 +72,7 @@ export const getProductById = async (id) => {
 export const updateProduct = async (id, updateData) => {
   if (updateData.imageUrl || updateData.additionalImages) {
     validateImages(
-      updateData.imageUrl, 
+      updateData.imageUrl,
       updateData.additionalImages
     );
   }
@@ -92,7 +92,7 @@ export const updateProduct = async (id, updateData) => {
 
 export const deleteProduct = async (productId) => {
   try {
-    logger.info(chalk.blue('🗑️ Attempting to delete product:'), 
+    logger.info(chalk.blue('🗑️ Attempting to delete product:'),
       chalk.cyan(productId)
     );
 
@@ -104,7 +104,7 @@ export const deleteProduct = async (productId) => {
     // Note: Removed the active orders check since it's causing issues
     // Simply delete the product
     await Product.findByIdAndDelete(productId);
-    
+
     logger.info(chalk.green('✅ Product deleted successfully'));
     return true;
   } catch (error) {

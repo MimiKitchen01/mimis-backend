@@ -199,14 +199,14 @@ export const uploadProductImages = (req, res, next) => {
       if (!allowedTypes.includes(file.mimetype)) {
         return cb(new ApiError(400, 'Invalid file type. Only JPEG, PNG and WEBP allowed'), false);
       }
-      
+
       // Log file details
       logger.info(chalk.blue('📝 Processing product image:'), {
         filename: chalk.cyan(file.originalname),
         size: chalk.yellow(`${(file.size / (1024 * 1024)).toFixed(2)}MB`),
         type: chalk.magenta(file.mimetype)
       });
-      
+
       cb(null, true);
     }
   }).array('images', 8);
@@ -227,12 +227,12 @@ export const uploadProductImages = (req, res, next) => {
           limit: 8
         });
       }
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: `Upload error: ${err.message}`,
         code: err.code
       });
     }
-    
+
     if (err) {
       logger.error(chalk.red('❌ Upload error:'), err);
       return res.status(500).json({ message: 'Error uploading files' });
@@ -243,6 +243,71 @@ export const uploadProductImages = (req, res, next) => {
         message: 'At least one image is required',
         code: 'NO_FILES'
       });
+    }
+
+    next();
+  });
+};
+
+// Product images upload middleware for updates (allows zero images)
+export const updateProductImages = (req, res, next) => {
+  const upload = multer({
+    storage: multerS3({
+      s3: s3Client,
+      bucket: process.env.AWS_BUCKET_NAME,
+      contentType: multerS3.AUTO_CONTENT_TYPE,
+      metadata: (req, file, cb) => {
+        cb(null, {
+          fieldName: file.fieldname,
+          userId: req.user.userId
+        });
+      },
+      key: (req, file, cb) => {
+        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+        const ext = path.extname(file.originalname);
+        const filename = `${uniqueSuffix}${ext}`;
+        const key = `products/${req.user.userId}/${filename}`;
+        cb(null, key);
+      }
+    }),
+    limits: {
+      fileSize: 40 * 1024 * 1024, // 40MB per file
+      files: 8 // Maximum 8 files
+    },
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.mimetype)) {
+        return cb(new ApiError(400, 'Invalid file type. Only JPEG, PNG and WEBP allowed'), false);
+      }
+      cb(null, true);
+    }
+  }).array('images', 8);
+
+  upload(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          message: 'File too large. Maximum size is 10MB per image',
+          code: 'FILE_TOO_LARGE',
+          limit: '10MB'
+        });
+      }
+      if (err.code === 'LIMIT_FILE_COUNT') {
+        return res.status(400).json({
+          message: 'Too many files. Maximum is 8 images',
+          code: 'TOO_MANY_FILES',
+          limit: 8
+        });
+      }
+      return res.status(400).json({
+        message: `Upload error: ${err.message}`,
+        code: err.code
+      });
+    }
+
+    if (err) {
+      logger.error(chalk.red('❌ Upload error:'), err);
+      return res.status(500).json({ message: 'Error uploading files' });
     }
 
     next();
