@@ -34,8 +34,7 @@ export const createUser = async (userData) => {
   await user.save();
   return { user, otpCode: otp.code };
 };
-
-
+ne
 export const verifyUserOTP = async (email, otp) => {
   const user = await User.findOne({ email });
   if (!user) {
