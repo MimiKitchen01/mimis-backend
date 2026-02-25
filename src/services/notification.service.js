@@ -314,12 +314,11 @@ export const sendPushNotification = async (userId, { title, body, data = {} }) =
         },
         payload: {
           aps: {
-            alert: { title, body }, // Correct structure for alert
+            alert: { title, body },
             badge: 1,
             sound: 'default',
-            'content-available': 0,
-            'mutable-content': 1,
-            'custom-data': baseData
+            contentAvailable: false,
+            mutableContent: true
           }
         }
       },
@@ -346,13 +345,17 @@ export const sendPushNotification = async (userId, { title, body, data = {} }) =
       totalSuccess = response.successCount;
       totalFailure = response.failureCount;
 
-      // Identify invalid tokens
+      // Identify invalid tokens and log all errors
       response.responses.forEach((res, idx) => {
         if (!res.success && res.error) {
           const errorCode = res.error?.code;
+          const errorMessage = res.error?.message;
+          const tokenSnippet = allTokens[idx].substring(0, 10) + '...';
+
+          logger.warn(`❌ Push failure for token ${tokenSnippet}: ${errorCode} - ${errorMessage}`);
+
           if (['messaging/invalid-registration-token', 'messaging/registration-token-not-registered', 'messaging/invalid-argument'].includes(errorCode)) {
             failedTokens.push(allTokens[idx]);
-            logger.warn(`⚠️ Removing invalid token: ${errorCode}`);
           }
         }
       });
