@@ -275,48 +275,26 @@ export const sendPushNotification = async (userId, { title, body, data = {} }) =
       }
     }
 
-    // Separate tokens by platform
-    const iosTokens = user.fcmTokens.filter(t => t.platform === 'ios').map(t => t.token);
-    const androidTokens = user.fcmTokens.filter(t => t.platform === 'android').map(t => t.token);
-    const webTokens = user.fcmTokens.filter(t => t.platform === 'web').map(t => t.token);
+    // Collect all tokens regardless of platform
+    const allTokens = user.fcmTokens
+      .map(t => (typeof t === 'string' ? t : t.token))
+      .filter(Boolean);
 
-    const allTokens = [...iosTokens, ...androidTokens, ...webTokens];
-    logger.debug(`Sending push to ${allTokens.length} tokens: iOS=${iosTokens.length}, Android=${androidTokens.length}, Web=${webTokens.length} for user ${user.email}`);
+    if (allTokens.length === 0) {
+      logger.info(`No valid FCM tokens found for user ${user.email} (${userId})`);
+      return null;
+    }
+
+    logger.debug(`Sending unified push to ${allTokens.length} tokens for user ${user.email}`);
 
     const baseData = Object.entries(data).reduce((acc, [key, value]) => {
       acc[key] = String(value);
       return acc;
     }, {});
 
-    // Message for iOS (APNs)
-    const iosMessage = {
-      notification: { title, body },
-      data: { ...baseData, click_action: 'FLUTTER_NOTIFICATION_CLICK' },
-      apns: {
-        headers: {
-          'apns-priority': '10', // High priority for immediate delivery
-          'apns-push-type': 'alert' // Alert type for user-visible notifications
-        },
-        payload: {
-          aps: {
-            alert: {
-              title,
-              body,
-              sound: 'default'
-            },
-            badge: 1,
-            sound: 'default',
-            'content-available': 0, // Not a silent notification
-            'mutable-content': 1, // Allow notification modification
-            'custom-data': baseData
-          }
-        }
-      },
-      tokens: iosTokens
-    };
-
-    // Message for Android
-    const androidMessage = {
+    // Construct a single message with all platform-specific overrides
+    // FCM will apply the correct block based on the individual device type
+    const message = {
       notification: { title, body },
       data: { ...baseData, click_action: 'FLUTTER_NOTIFICATION_CLICK' },
       android: {
@@ -329,17 +307,24 @@ export const sendPushNotification = async (userId, { title, body, data = {} }) =
           defaultLightSettings: true
         }
       },
-      tokens: androidTokens
-    };
-
-    // Message for Web
-    const webMessage = {
-      notification: { title, body },
-      data: { ...baseData, click_action: 'FCM_PLUGIN_ACTIVITY' },
-      webpush: {
+      apns: {
         headers: {
-          TTL: '86400'
+          'apns-priority': '10',
+          'apns-push-type': 'alert'
         },
+        payload: {
+          aps: {
+            alert: { title, body }, // Correct structure for alert
+            badge: 1,
+            sound: 'default',
+            'content-available': 0,
+            'mutable-content': 1,
+            'custom-data': baseData
+          }
+        }
+      },
+      webpush: {
+        headers: { TTL: '86400' },
         data: baseData,
         notification: {
           title,
@@ -347,111 +332,49 @@ export const sendPushNotification = async (userId, { title, body, data = {} }) =
           icon: 'https://www.example.com/icon-192x192.png'
         }
       },
-      tokens: webTokens
+      tokens: allTokens
     };
 
     let totalSuccess = 0;
     let totalFailure = 0;
     const failedTokens = [];
-    const responses = [];
 
-    // Send to iOS devices
-    if (iosTokens.length > 0) {
-      try {
-        logger.info(`📱 Sending iOS APNs push to ${iosTokens.length} devices...`);
-        const iosResponse = await admin.messaging().sendEachForMulticast(iosMessage);
-        logger.info(`✅ iOS: ${iosResponse.successCount} sent, ${iosResponse.failureCount} failed`);
+    try {
+      const response = await admin.messaging().sendEachForMulticast(message);
+      logger.info(`✅ Push summary: ${response.successCount} sent, ${response.failureCount} failed`);
 
-        totalSuccess += iosResponse.successCount;
-        totalFailure += iosResponse.failureCount;
-        responses.push({ platform: 'ios', ...iosResponse });
+      totalSuccess = response.successCount;
+      totalFailure = response.failureCount;
 
-        // Handle iOS failures
-        iosResponse.responses.forEach((res, idx) => {
-          if (!res.success && res.error) {
-            const errorCode = res.error?.code;
-            if (['messaging/invalid-registration-token', 'messaging/registration-token-not-registered', 'messaging/invalid-argument'].includes(errorCode)) {
-              failedTokens.push(iosTokens[idx]);
-              logger.warn(`⚠️ iOS token removed due to: ${errorCode}`);
-            }
+      // Identify invalid tokens
+      response.responses.forEach((res, idx) => {
+        if (!res.success && res.error) {
+          const errorCode = res.error?.code;
+          if (['messaging/invalid-registration-token', 'messaging/registration-token-not-registered', 'messaging/invalid-argument'].includes(errorCode)) {
+            failedTokens.push(allTokens[idx]);
+            logger.warn(`⚠️ Removing invalid token: ${errorCode}`);
           }
-        });
-      } catch (error) {
-        logger.error('iOS push failed:', error);
-        totalFailure += iosTokens.length;
-      }
-    }
-
-    // Send to Android devices
-    if (androidTokens.length > 0) {
-      try {
-        logger.info(`🤖 Sending Android push to ${androidTokens.length} devices...`);
-        const androidResponse = await admin.messaging().sendEachForMulticast(androidMessage);
-        logger.info(`✅ Android: ${androidResponse.successCount} sent, ${androidResponse.failureCount} failed`);
-
-        totalSuccess += androidResponse.successCount;
-        totalFailure += androidResponse.failureCount;
-        responses.push({ platform: 'android', ...androidResponse });
-
-        // Handle Android failures
-        androidResponse.responses.forEach((res, idx) => {
-          if (!res.success && res.error) {
-            const errorCode = res.error?.code;
-            if (['messaging/invalid-registration-token', 'messaging/registration-token-not-registered', 'messaging/invalid-argument'].includes(errorCode)) {
-              failedTokens.push(androidTokens[idx]);
-              logger.warn(`⚠️ Android token removed due to: ${errorCode}`);
-            }
-          }
-        });
-      } catch (error) {
-        logger.error('Android push failed:', error);
-        totalFailure += androidTokens.length;
-      }
-    }
-
-    // Send to Web devices
-    if (webTokens.length > 0) {
-      try {
-        logger.info(`🌐 Sending Web push to ${webTokens.length} devices...`);
-        const webResponse = await admin.messaging().sendEachForMulticast(webMessage);
-        logger.info(`✅ Web: ${webResponse.successCount} sent, ${webResponse.failureCount} failed`);
-
-        totalSuccess += webResponse.successCount;
-        totalFailure += webResponse.failureCount;
-        responses.push({ platform: 'web', ...webResponse });
-
-        // Handle Web failures
-        webResponse.responses.forEach((res, idx) => {
-          if (!res.success && res.error) {
-            const errorCode = res.error?.code;
-            if (['messaging/invalid-registration-token', 'messaging/registration-token-not-registered', 'messaging/invalid-argument'].includes(errorCode)) {
-              failedTokens.push(webTokens[idx]);
-              logger.warn(`⚠️ Web token removed due to: ${errorCode}`);
-            }
-          }
-        });
-      } catch (error) {
-        logger.error('Web push failed:', error);
-        totalFailure += webTokens.length;
-      }
-    }
-
-    // Remove failed tokens
-    if (failedTokens.length > 0) {
-      await User.findByIdAndUpdate(userId, {
-        $pull: { 'fcmTokens.token': { $in: failedTokens } }
+        }
       });
-      logger.info(`🧹 Removed ${failedTokens.length} expired/invalid tokens for user ${userId}`);
+
+      // Remove failed tokens using correct syntax
+      if (failedTokens.length > 0) {
+        await User.findByIdAndUpdate(userId, {
+          $pull: { fcmTokens: { token: { $in: failedTokens } } }
+        });
+        logger.info(`🧹 Cleaned up ${failedTokens.length} invalid tokens for user ${userId}`);
+      }
+
+      return {
+        successCount: totalSuccess,
+        failureCount: totalFailure,
+        totalSent: totalSuccess + totalFailure,
+        responses: response.responses
+      };
+    } catch (error) {
+      logger.error('Multicast push failed:', error);
+      return { successCount: 0, failureCount: allTokens.length, error: error.message };
     }
-
-    logger.info(`📊 Push notification summary for user ${userId}: ✅ ${totalSuccess} | ❌ ${totalFailure}`);
-
-    return {
-      successCount: totalSuccess,
-      failureCount: totalFailure,
-      totalSent: totalSuccess + totalFailure,
-      responses
-    };
   } catch (error) {
     logger.error('Error sending push notification:', error);
     return null;
