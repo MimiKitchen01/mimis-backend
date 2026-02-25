@@ -137,12 +137,43 @@ const isValidPlatform = (platform) => {
 };
 
 
+const migrateOldTokenFormat = (tokens) => {
+  // Convert old string format tokens to new object format
+  if (!tokens) return [];
+  
+  return tokens.map(t => {
+    if (typeof t === 'string') {
+      // Old format: string token
+      logger.info(`🔄 Migrating old token format: ${t.substring(0, 10)}...`);
+      return {
+        token: t,
+        platform: 'android', // Assume android for legacy tokens
+        createdAt: new Date(),
+        lastUsed: new Date()
+      };
+    }
+    // Already in new format
+    return t;
+  });
+};
+
 export const updateFCMToken = async (userId, token, action = 'add', platform = 'android') => {
   try {
     const user = await User.findById(userId);
     if (!user) {
       logger.warn(`Attempted to update FCM token for non-existent user: ${userId}`);
       throw new ApiError(404, 'User not found');
+    }
+
+    // Migrate old token format if needed
+    if (user.fcmTokens && user.fcmTokens.length > 0) {
+      const migratedTokens = migrateOldTokenFormat(user.fcmTokens);
+      // Check if migration happened
+      if (JSON.stringify(user.fcmTokens) !== JSON.stringify(migratedTokens)) {
+        user.fcmTokens = migratedTokens;
+        await user.save();
+        logger.info(`✅ Migrated ${user.fcmTokens.length} tokens for user ${userId} to new format`);
+      }
     }
 
     // Ensure fcmTokens is initialized
@@ -177,8 +208,9 @@ export const updateFCMToken = async (userId, token, action = 'add', platform = '
         const tokenEntry = user.fcmTokens.find(t => t.token === token);
         if (tokenEntry) {
           tokenEntry.lastUsed = new Date();
+          tokenEntry.platform = platform; // Update platform if changed
           await user.save();
-          logger.info(`🔄 FCM token already exists for user ${userId}, updated lastUsed`);
+          logger.info(`🔄 FCM token already exists for user ${userId}, updated lastUsed and platform`);
         }
       }
     } else if (action === 'remove') {
@@ -190,8 +222,15 @@ export const updateFCMToken = async (userId, token, action = 'add', platform = '
       }
     }
 
-    // Return simplified token list for response
-    return user.fcmTokens.map(t => ({ token: t.token.substring(0, 10) + '...', platform: t.platform, lastUsed: t.lastUsed }));
+    // Return simplified token list for response - handle both old and new formats safely
+    return user.fcmTokens.map(t => {
+      const tokenStr = typeof t === 'string' ? t : t.token;
+      return {
+        token: tokenStr.substring(0, 10) + '...',
+        platform: typeof t === 'string' ? 'unknown' : (t.platform || 'unknown'),
+        lastUsed: typeof t === 'string' ? null : (t.lastUsed || null)
+      };
+    });
   } catch (error) {
     logger.error('Error updating FCM token:', error);
     throw error;
@@ -209,6 +248,17 @@ export const sendPushNotification = async (userId, { title, body, data = {} }) =
     if (!user.fcmTokens || user.fcmTokens.length === 0) {
       logger.info(`No FCM tokens found for user ${user.email} (${userId})`);
       return null;
+    }
+
+    // Migrate old token format if needed
+    if (user.fcmTokens && user.fcmTokens.length > 0) {
+      const firstToken = user.fcmTokens[0];
+      if (typeof firstToken === 'string') {
+        const migratedTokens = migrateOldTokenFormat(user.fcmTokens);
+        user.fcmTokens = migratedTokens;
+        await user.save();
+        logger.info(`✅ Migrated ${user.fcmTokens.length} tokens for user ${userId} to new format before sending`);
+      }
     }
 
     // Separate tokens by platform
