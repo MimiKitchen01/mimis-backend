@@ -152,21 +152,28 @@ export const clearAllReadNotifications = async (req, res) => {
 
 export const updateFCMToken = async (req, res) => {
   try {
-    const { token, action = 'add' } = req.body;
+    const { token, action = 'add', platform = 'android' } = req.body;
     if (!token) {
       res.status(400).json({ status: 'error', message: 'FCM token is required' });
+      return;
+    }
+
+    if (!['ios', 'android', 'web'].includes(platform)) {
+      res.status(400).json({ status: 'error', message: 'Platform must be one of: ios, android, web' });
       return;
     }
 
     const tokens = await notificationService.updateFCMToken(
       req.user.userId,
       token,
-      action
+      action,
+      platform
     );
 
     res.json({
       status: 'success',
-      message: `Token ${action === 'remove' ? 'removed' : 'added'} successfully`,
+      message: `Token ${action === 'remove' ? 'removed' : 'added'} successfully for ${platform}`,
+      tokensRegistered: tokens.length,
       tokens
     });
   } catch (error) {

@@ -129,7 +129,14 @@ const userSchema = new mongoose.Schema({
 
   lastLogin: Date,
   loginAttempts: { type: Number, default: 0 },
-  fcmTokens: [String],
+  fcmTokens: [
+    {
+      token: { type: String, required: true },
+      platform: { type: String, enum: ['ios', 'android', 'web'], default: 'android' },
+      createdAt: { type: Date, default: Date.now },
+      lastUsed: { type: Date, default: Date.now }
+    }
+  ],
   deletedAt: { type: Date, default: null }
 }, {
   timestamps: true
