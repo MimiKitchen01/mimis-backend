@@ -307,46 +307,12 @@ router.get('/:id', auth, (req, res, next) => {
   orderController.getOrderById(req, res, next);
 });
 
-/**
- * @swagger
- * /api/orders/pay:
- *   post:
- *     summary: Process payment for order
- *     tags: [Orders]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - orderId
- *               - paymentDetails
- *             properties:
- *               orderId:
- *                 type: string
- *               paymentDetails:
- *                 type: object
- *                 required:
- *                   - method
- *                   - transactionId
- *                 properties:
- *                   method:
- *                     type: string
- *                     enum: [credit_card, debit_card, wallet]
- *                   transactionId:
- *                     type: string
- *     responses:
- *       200:
- *         description: Payment processed
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Order'
- */
-router.post('/pay', auth, orderController.processPayment);
+// NOTE: The legacy `POST /api/orders/pay` endpoint was removed.
+// It marked orders as paid/confirmed based purely on the request body
+// without ever charging via Stripe, allowing orders to be placed without
+// payment. Payment is now confirmed only via the verified Stripe webhook
+// (POST /api/payments/webhook) or POST /api/payments/confirm, which checks
+// the PaymentIntent status with Stripe directly.
 
 /**
  * @swagger

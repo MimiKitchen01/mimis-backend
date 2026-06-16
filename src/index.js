@@ -20,6 +20,7 @@ import paymentRoutes from './routes/payment.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import { corsMiddleware, handleCors } from './middleware/cors.middleware.js';
 import { initEmailService } from './services/email.service.js';
+import { cancelExpiredPendingOrders } from './services/order.service.js';
 import compression from 'compression';
 import helmet from 'helmet';
 import { apiLimiter, authLimiter, otpLimiter, registerLimiter } from './middleware/rateLimit.middleware.js';
@@ -138,6 +139,17 @@ app.listen(PORT, '0.0.0.0', () => {
   initEmailService()
     .then(() => logger.info(chalk.green('✉️ Mail service initialization complete')))
     .catch((err) => logger.error(chalk.red('✉️ Mail service initialization error:'), err));
+
+  // Periodically auto-cancel unpaid orders so they never count as placed orders.
+  const PENDING_SWEEP_INTERVAL_MS = 10 * 60 * 1000; // every 10 minutes
+  cancelExpiredPendingOrders().catch((err) =>
+    logger.error(chalk.red('Pending-order sweep failed:'), err)
+  );
+  setInterval(() => {
+    cancelExpiredPendingOrders().catch((err) =>
+      logger.error(chalk.red('Pending-order sweep failed:'), err)
+    );
+  }, PENDING_SWEEP_INTERVAL_MS);
 });
 
 // Error handler

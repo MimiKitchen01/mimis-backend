@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout *)",
+      "Bash(cd /Users/temple/Documents/Daniel/mimi-kitchen)",
+      "Bash(grep -m1 '\"name\"' package.json)",
+      "Bash(cd /Users/temple/Documents/Daniel/mimi-kitchen *)",
+      "Read(//Users/temple/Documents/Daniel/mimi-kitchen/**)"
+    ],
+    "additionalDirectories": [
+      "/Users/temple/Documents/Daniel/mimi-kitchen/app/payment"
+    ]
+  }
+}

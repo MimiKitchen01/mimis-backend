@@ -1,6 +1,7 @@
 import * as paymentService from '../services/payment.service.js';
 import * as notificationService from '../services/notification.service.js';
 import * as emailService from '../services/email.service.js';
+import * as cartService from '../services/cart.service.js';
 import {
   getPaymentInitiatedTemplate,
   getPaymentSuccessTemplate
@@ -9,6 +10,9 @@ import Order from '../models/order.model.js';
 import { ApiError } from '../middleware/error.middleware.js';
 import logger from '../utils/logger.js';
 import chalk from 'chalk';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export const createPaymentSession = async (req, res) => {
   try {
@@ -106,9 +110,16 @@ const handleSuccessfulPayment = async (paymentIntent) => {
   if (order && order.paymentStatus !== 'completed') {
     order.paymentStatus = 'completed';
     if (!order.paymentDetails) order.paymentDetails = {};
+    order.paymentDetails.transactionId = paymentIntent.id;
     order.paymentDetails.paidAt = new Date();
     order.status = 'confirmed';
     await order.save();
+
+    // Clear the user's cart now that the order is paid.
+    const userId = order.user?._id || order.user;
+    cartService.clearCart(userId).catch((err) =>
+      logger.error('Failed to clear cart after payment:', err)
+    );
 
     try {
       // Send success notification and email
@@ -119,6 +130,11 @@ const handleSuccessfulPayment = async (paymentIntent) => {
           message: `Your payment for order #${order.orderNumber} was successful.`,
           type: 'payment',
           orderId: order._id
+        }),
+        notificationService.notifyAdmins({
+          title: 'New Order Received',
+          body: `Order #${order.orderNumber} has been paid and placed.`,
+          data: { orderId: order._id.toString(), type: 'new_order' }
         }),
         emailService.sendEmail({
           to: order.user.email,
@@ -146,7 +162,10 @@ const handleFailedPayment = async (paymentIntent) => {
 
 export const confirmPayment = async (req, res) => {
   try {
-    const { orderId, status } = req.body;
+    // NOTE: The client-supplied `status` is intentionally ignored. Payment is
+    // verified directly against Stripe so an order can never be confirmed
+    // without a real, succeeded payment.
+    const { orderId } = req.body;
 
     const order = await Order.findOne({
       _id: orderId,
@@ -165,18 +184,58 @@ export const confirmPayment = async (req, res) => {
       });
     }
 
-    // Update order status and save
-    order.paymentStatus = status;
+    if (!order.paymentId) {
+      throw new ApiError(400, 'No payment has been initiated for this order');
+    }
+
+    // Verify the payment with Stripe — this is the source of truth.
+    const paymentIntent = await stripe.paymentIntents.retrieve(order.paymentId);
+
+    if (paymentIntent.status !== 'succeeded') {
+      logger.warn(chalk.yellow('Payment not completed on Stripe:'), {
+        orderId: chalk.cyan(order._id),
+        paymentIntent: chalk.yellow(paymentIntent.id),
+        stripeStatus: chalk.red(paymentIntent.status)
+      });
+      throw new ApiError(400, `Payment not completed. Current status: ${paymentIntent.status}`);
+    }
+
+    // Verify the amount charged matches the order total (amounts are in cents).
+    const expectedAmount = Math.round(order.total * 100);
+    if (paymentIntent.amount_received !== expectedAmount) {
+      logger.error(chalk.red('Payment amount mismatch:'), {
+        orderId: chalk.cyan(order._id),
+        expected: chalk.yellow(expectedAmount),
+        received: chalk.red(paymentIntent.amount_received)
+      });
+      throw new ApiError(400, 'Payment amount does not match order total');
+    }
+
+    // Payment verified — confirm the order.
+    order.paymentStatus = 'completed';
     if (!order.paymentDetails) {
       order.paymentDetails = {
         amount: order.total,
         currency: 'gbp'
       };
     }
+    order.paymentDetails.transactionId = paymentIntent.id;
     order.paymentDetails.paidAt = new Date();
     order.status = 'confirmed';
 
     await order.save();
+
+    // Clear the user's cart now that the order is paid.
+    cartService.clearCart(req.user.userId).catch((err) =>
+      logger.error('Failed to clear cart after payment:', err)
+    );
+
+    // Notify admins now that the order is actually paid.
+    notificationService.notifyAdmins({
+      title: 'New Order Received',
+      body: `Order #${order.orderNumber} has been paid and placed.`,
+      data: { orderId: order._id.toString(), type: 'new_order' }
+    }).catch((err) => logger.error('Admin notification failed:', err));
 
     try {
       // Send success notification and email

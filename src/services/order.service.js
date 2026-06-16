@@ -79,18 +79,14 @@ export const createOrder = async (userId, addressId = null) => {
 
   await notificationService.sendPushNotification(userId, {
     title: 'Order Created',
-    body: `Your order #${order.orderNumber} has been created successfully.`,
+    body: `Your order #${order.orderNumber} has been created. Please complete payment to place it.`,
     data: { orderId: order._id.toString() }
   });
 
-  // Notify Admins
-  await notificationService.notifyAdmins({
-    title: 'New Order Received',
-    body: `Order #${order.orderNumber} has been placed by ${order.user.fullName || 'a customer'}.`,
-    data: { orderId: order._id.toString(), type: 'new_order' }
-  });
-
-
+  // NOTE: Admins are intentionally NOT notified here. An order at this point is
+  // only PENDING/unpaid. Admins are notified once payment is verified by Stripe
+  // (see paymentController.handleSuccessfulPayment / confirmPayment), so unpaid
+  // orders no longer appear to admins as placed orders.
 
   return order.populate(['items.product', 'deliveryAddress', 'user']);
 };
@@ -179,9 +175,15 @@ export const updateOrderStatus = async (orderId, status, adminId) => {
   // Validate status transition
   validateStatusTransition(order.status, status);
 
-  // Update payment status when order is confirmed
-  if (status === ORDER_STATUS.CONFIRMED && order.paymentStatus === PAYMENT_STATUS.PENDING) {
-    order.paymentStatus = PAYMENT_STATUS.COMPLETED;
+  // An order can only be placed/advanced once payment has succeeded.
+  // Moving an order out of `pending` into any active state (e.g. confirmed)
+  // requires a completed payment. Cancelling is always allowed.
+  const isAdvancing = status !== ORDER_STATUS.CANCELLED;
+  if (isAdvancing && order.paymentStatus !== PAYMENT_STATUS.COMPLETED) {
+    throw new ApiError(
+      400,
+      'Order cannot be placed: payment has not been completed for this order'
+    );
   }
 
   order.status = status;
@@ -229,6 +231,40 @@ export const updatePaymentStatus = async (orderId, paymentStatus, adminId) => {
 
   await order.save();
   return order;
+};
+
+// Automatically cancel unpaid orders that were never paid for, so a
+// pending/unpaid checkout attempt never lingers as a real order.
+const UNPAID_ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+export const cancelExpiredPendingOrders = async () => {
+  const cutoff = new Date(Date.now() - UNPAID_ORDER_TTL_MS);
+
+  const result = await Order.updateMany(
+    {
+      status: ORDER_STATUS.PENDING,
+      paymentStatus: { $ne: PAYMENT_STATUS.COMPLETED },
+      createdAt: { $lt: cutoff }
+    },
+    {
+      $set: { status: ORDER_STATUS.CANCELLED },
+      $push: {
+        statusHistory: {
+          status: ORDER_STATUS.CANCELLED,
+          timestamp: new Date()
+        }
+      }
+    }
+  );
+
+  if (result.modifiedCount > 0) {
+    logger.info(
+      chalk.yellow('🧹 Auto-cancelled unpaid orders:'),
+      chalk.cyan(result.modifiedCount)
+    );
+  }
+
+  return result.modifiedCount;
 };
 
 // Helper functions

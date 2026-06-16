@@ -264,38 +264,12 @@ export const getOrderById = async (req, res) => {
   }
 };
 
-export const processPayment = async (req, res) => {
-  try {
-    const { orderId, paymentDetails } = req.body;
-    const order = await Order.findOne({
-      _id: orderId,
-      user: req.user.userId
-    });
-
-    if (!order) {
-      throw new ApiError(404, 'Order not found');
-    }
-
-    order.paymentStatus = 'completed';
-    order.paymentDetails = {
-      ...paymentDetails,
-      paidAt: new Date()
-    };
-    order.status = 'confirmed';
-
-    await order.save();
-
-    // Clear the cart after successful payment
-    await cartService.clearCart(req.user.userId);
-
-    await order.populate(['items.product', 'deliveryAddress']);
-
-    res.json(order);
-  } catch (error) {
-    logger.error('Error in processPayment:', error);
-    res.status(error.statusCode || 400).json({ message: error.message });
-  }
-};
+// NOTE: `processPayment` was removed. It marked orders as paid/confirmed
+// directly from the request body without verifying any real payment, which
+// allowed orders to be placed without the user actually paying. Payment is
+// now confirmed exclusively through Stripe — via the webhook
+// (handlePaymentWebhook) or via paymentController.confirmPayment, which
+// verifies the PaymentIntent status with Stripe before confirming.
 
 export const getPaidOrders = async (req, res) => {
   try {
