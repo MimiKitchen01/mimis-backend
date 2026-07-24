@@ -76,7 +76,13 @@ app.use(compression({
 }));
 
 // Middleware
-app.use(express.json({ limit: '40mb' }));
+// Stripe webhooks are verified against the raw, unparsed request body, so the
+// webhook path must skip the JSON parser — otherwise req.body arrives as a
+// parsed object and signature verification always fails.
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/payments/webhook') return next();
+  express.json({ limit: '40mb' })(req, res, next);
+});
 app.use(express.urlencoded({ limit: '40mb', extended: true }));
 
 // Request logging middleware
