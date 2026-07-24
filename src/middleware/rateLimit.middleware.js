@@ -1,9 +1,16 @@
 import rateLimit from 'express-rate-limit';
 
-// General API rate limit - 100 requests per 15 minutes
+// General API rate limit - 1000 requests per 15 minutes.
+//
+// This applies to every /api/ route, so it is a browsing budget, not an abuse
+// threshold. The old value of 100 was consumed by ordinary use: the home screen
+// alone costs 3 requests, each category tap costs 2, and every product page 1.
+// Once spent, all reads returned 429 for the rest of the window. Mobile carriers
+// also put many users behind one CGNAT address, so a single IP is not a single
+// user. Abuse-sensitive routes keep their own strict limits below.
 export const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // 100 requests per window
+    max: 1000, // 1000 requests per window
     message: {
         status: 'error',
         message: 'Too many requests from this IP, please try again later.'
