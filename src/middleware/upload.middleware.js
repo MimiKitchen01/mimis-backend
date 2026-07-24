@@ -1,108 +1,50 @@
 import multer from 'multer';
-import { S3Client } from '@aws-sdk/client-s3';
-import multerS3 from 'multer-s3';
-import path from 'path';
 import { ApiError } from './error.middleware.js';
-import s3Client from '../config/s3.config.js';
 import logger from '../utils/logger.js';
 import chalk from 'chalk';
+import { createCloudinaryStorage } from '../config/cloudinaryStorage.js';
 
-const fileFilter = (req, file, cb) => {
-  logger.info({
-    message: 'Validating file upload',
-    mimetype: file.mimetype,
-    originalname: file.originalname,
-    fieldname: file.fieldname
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+const imageFileFilter = (req, file, cb) => {
+  logger.info(chalk.blue('🔍 Validating file:'), {
+    fieldname: chalk.cyan(file.fieldname),
+    originalname: chalk.yellow(file.originalname),
+    mimetype: chalk.magenta(file.mimetype)
   });
 
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  if (!allowedTypes.includes(file.mimetype)) {
+  if (!ALLOWED_TYPES.includes(file.mimetype)) {
     return cb(new ApiError(400, 'Invalid file type. Only JPEG, PNG and WEBP allowed'), false);
   }
   cb(null, true);
 };
 
-// Create base multer S3 configuration
-const createS3Storage = (folderPath) =>
-  multerS3({
-    s3: s3Client,
-    bucket: process.env.AWS_BUCKET_NAME,
-    contentType: multerS3.AUTO_CONTENT_TYPE,
-    key: (req, file, cb) => {
-      logger.info('Processing file upload:', {
-        originalname: file.originalname,
-        mimetype: file.mimetype,
-        fieldname: file.fieldname
-      });
-
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      const ext = path.extname(file.originalname) || '.jpg';
-      const key = `${folderPath}/${req.user.userId}/${uniqueSuffix}${ext}`;
-
-      logger.info('Generated S3 key:', { key });
-      cb(null, key);
-    },
-    metadata: (req, file, cb) => {
-      cb(null, {
-        fieldName: file.fieldname,
-        userId: req.user.userId,
-        originalName: file.originalname
-      });
-    }
-  });
+// Cloudinary folders mirror the old S3 key prefixes so the storage layout is familiar.
+const profileStorage = createCloudinaryStorage({
+  folderForRequest: (req) => `profile-images/${req.user.userId}`
+});
+const productStorage = createCloudinaryStorage({
+  folderForRequest: (req) => `products/${req.user.userId}`
+});
+const reviewStorage = createCloudinaryStorage({
+  folderForRequest: (req) => `reviews/${req.user.userId}`
+});
 
 // Profile image upload middleware
 export const uploadSingleImage = (req, res, next) => {
   logger.info(chalk.blue('📤 Starting image upload...'));
 
-  // Create multer instance with explicit configurations
   const upload = multer({
-    storage: multerS3({
-      s3: s3Client,
-      bucket: process.env.AWS_BUCKET_NAME,
-      contentType: multerS3.AUTO_CONTENT_TYPE,
-      metadata: (req, file, cb) => {
-        cb(null, {
-          fieldName: file.fieldname,
-          userId: req.user.userId
-        });
-      },
-      key: (req, file, cb) => {
-        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
-        const ext = path.extname(file.originalname);
-        const filename = `${uniqueSuffix}${ext}`;
-        const key = `profile-images/${req.user.userId}/${filename}`;
-
-        logger.info(chalk.blue('🔑 Generated S3 key:'), chalk.cyan(key));
-        cb(null, key);
-      }
-    }),
+    storage: profileStorage,
     limits: {
       fileSize: 2 * 1024 * 1024 // 2MB
     },
-    fileFilter: (req, file, cb) => {
-      // Log the incoming file details
-      logger.info(chalk.blue('🔍 Validating file:'), {
-        fieldname: chalk.cyan(file.fieldname),
-        originalname: chalk.yellow(file.originalname),
-        mimetype: chalk.magenta(file.mimetype)
-      });
-
-      // Validate file type
-      if (!file.mimetype.match(/^image\/(jpeg|png|webp)$/)) {
-        return cb(new ApiError(400, 'Only JPEG, PNG and WEBP files are allowed'));
-      }
-      cb(null, true);
-    }
+    fileFilter: imageFileFilter
   }).single('image');
 
-  // Handle the upload with detailed logging
   upload(req, res, (err) => {
-    // Log the entire request for debugging
     logger.info(chalk.blue('📝 Upload request details:'), {
-      headers: req.headers,
-      body: req.body,
-      file: req.file
+      hasFile: !!req.file
     });
 
     if (err) {
@@ -121,7 +63,7 @@ export const uploadSingleImage = (req, res, next) => {
         });
       }
 
-      return res.status(400).json({
+      return res.status(err.statusCode || 400).json({
         message: err.message,
         code: 'UPLOAD_ERROR'
       });
@@ -129,8 +71,7 @@ export const uploadSingleImage = (req, res, next) => {
 
     if (!req.file) {
       logger.error(chalk.red('❌ No file in request'), {
-        contentType: req.headers['content-type'],
-        body: req.body
+        contentType: req.headers['content-type']
       });
 
       return res.status(400).json({
@@ -142,20 +83,7 @@ export const uploadSingleImage = (req, res, next) => {
 3. Click "Select Files" button
 4. Select an image file (JPEG, PNG, or WEBP)
 5. Don't set Content-Type manually
-6. Check file size (max 2MB)
-7. Verify request headers:
-   Current Content-Type: ${req.headers['content-type']}`,
-        example: {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Bearer your-token',
-          },
-          body: {
-            type: 'form-data',
-            key: 'image',
-            value: '[Select File]'
-          }
-        }
+6. Check file size (max 2MB)`
       });
     }
 
@@ -169,55 +97,24 @@ export const uploadSingleImage = (req, res, next) => {
   });
 };
 
-// Product images upload middleware
+// Product images upload middleware (at least one image required)
 export const uploadProductImages = (req, res, next) => {
   const upload = multer({
-    storage: multerS3({
-      s3: s3Client,
-      bucket: process.env.AWS_BUCKET_NAME,
-      contentType: multerS3.AUTO_CONTENT_TYPE,
-      metadata: (req, file, cb) => {
-        cb(null, {
-          fieldName: file.fieldname,
-          userId: req.user.userId
-        });
-      },
-      key: (req, file, cb) => {
-        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
-        const ext = path.extname(file.originalname);
-        const filename = `${uniqueSuffix}${ext}`;
-        const key = `products/${req.user.userId}/${filename}`;
-        cb(null, key);
-      }
-    }),
+    storage: productStorage,
     limits: {
-      fileSize: 40 * 1024 * 1024, // Increased to 40MB per file
+      fileSize: 40 * 1024 * 1024, // 40MB per file
       files: 8 // Maximum 8 files
     },
-    fileFilter: (req, file, cb) => {
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-      if (!allowedTypes.includes(file.mimetype)) {
-        return cb(new ApiError(400, 'Invalid file type. Only JPEG, PNG and WEBP allowed'), false);
-      }
-
-      // Log file details
-      logger.info(chalk.blue('📝 Processing product image:'), {
-        filename: chalk.cyan(file.originalname),
-        size: chalk.yellow(`${(file.size / (1024 * 1024)).toFixed(2)}MB`),
-        type: chalk.magenta(file.mimetype)
-      });
-
-      cb(null, true);
-    }
+    fileFilter: imageFileFilter
   }).array('images', 8);
 
   upload(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({
-          message: 'File too large. Maximum size is 10MB per image',
+          message: 'File too large. Maximum size is 40MB per image',
           code: 'FILE_TOO_LARGE',
-          limit: '10MB'
+          limit: '40MB'
         });
       }
       if (err.code === 'LIMIT_FILE_COUNT') {
@@ -235,7 +132,7 @@ export const uploadProductImages = (req, res, next) => {
 
     if (err) {
       logger.error(chalk.red('❌ Upload error:'), err);
-      return res.status(500).json({ message: 'Error uploading files' });
+      return res.status(err.statusCode || 500).json({ message: err.message || 'Error uploading files' });
     }
 
     if (!req.files || req.files.length === 0) {
@@ -252,44 +149,21 @@ export const uploadProductImages = (req, res, next) => {
 // Product images upload middleware for updates (allows zero images)
 export const updateProductImages = (req, res, next) => {
   const upload = multer({
-    storage: multerS3({
-      s3: s3Client,
-      bucket: process.env.AWS_BUCKET_NAME,
-      contentType: multerS3.AUTO_CONTENT_TYPE,
-      metadata: (req, file, cb) => {
-        cb(null, {
-          fieldName: file.fieldname,
-          userId: req.user.userId
-        });
-      },
-      key: (req, file, cb) => {
-        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
-        const ext = path.extname(file.originalname);
-        const filename = `${uniqueSuffix}${ext}`;
-        const key = `products/${req.user.userId}/${filename}`;
-        cb(null, key);
-      }
-    }),
+    storage: productStorage,
     limits: {
       fileSize: 40 * 1024 * 1024, // 40MB per file
       files: 8 // Maximum 8 files
     },
-    fileFilter: (req, file, cb) => {
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-      if (!allowedTypes.includes(file.mimetype)) {
-        return cb(new ApiError(400, 'Invalid file type. Only JPEG, PNG and WEBP allowed'), false);
-      }
-      cb(null, true);
-    }
+    fileFilter: imageFileFilter
   }).array('images', 8);
 
   upload(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({
-          message: 'File too large. Maximum size is 10MB per image',
+          message: 'File too large. Maximum size is 40MB per image',
           code: 'FILE_TOO_LARGE',
-          limit: '10MB'
+          limit: '40MB'
         });
       }
       if (err.code === 'LIMIT_FILE_COUNT') {
@@ -307,33 +181,17 @@ export const updateProductImages = (req, res, next) => {
 
     if (err) {
       logger.error(chalk.red('❌ Upload error:'), err);
-      return res.status(500).json({ message: 'Error uploading files' });
+      return res.status(err.statusCode || 500).json({ message: err.message || 'Error uploading files' });
     }
 
     next();
   });
 };
 
-// Configure S3 for review images
+// Review images upload middleware
 export const uploadReviewImages = multer({
-  storage: multerS3({
-    s3: s3Client,
-    bucket: process.env.AWS_BUCKET_NAME,
-    metadata: function (req, file, cb) {
-      cb(null, { fieldName: file.fieldname });
-    },
-    key: function (req, file, cb) {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      cb(null, `reviews/${req.user.userId}/${uniqueSuffix}-${file.originalname}`);
-    }
-  }),
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new ApiError(400, 'Only image files are allowed'), false);
-    }
-  },
+  storage: reviewStorage,
+  fileFilter: imageFileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB
   }
