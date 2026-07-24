@@ -1,5 +1,6 @@
 import * as orderService from '../services/order.service.js';
 import * as cartService from '../services/cart.service.js';
+import * as paymentService from '../services/payment.service.js';
 import * as notificationService from '../services/notification.service.js'; // Add this import
 import Cart from '../models/cart.model.js'; // Changed from named import to default import
 import Product from '../models/product.model.js';
@@ -276,9 +277,20 @@ export const processPayment = async (req, res) => {
       throw new ApiError(404, 'Order not found');
     }
 
+    if (order.paymentStatus === 'completed') {
+      await order.populate(['items.product', 'deliveryAddress']);
+      return res.json(order);
+    }
+
+    // Previously this marked the order paid unconditionally — a free-order
+    // bypass. Verify with Stripe before completing, same as /payments/confirm.
+    await paymentService.verifyOrderPaymentSucceeded(order);
+
     order.paymentStatus = 'completed';
     order.paymentDetails = {
       ...paymentDetails,
+      amount: order.total,
+      currency: 'gbp',
       paidAt: new Date()
     };
     order.status = 'confirmed';

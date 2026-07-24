@@ -76,11 +76,10 @@ export const handlePaymentWebhook = async (req, res) => {
   const sig = req.headers['stripe-signature'];
 
   try {
-    const event = stripe.webhooks.constructEvent(
-      req.body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
+    // Previously this called a `stripe` instance that was never imported here,
+    // so every webhook threw and returned 400 — the secure confirmation path
+    // was dead. Verify the signature via the payment service instead.
+    const event = paymentService.constructWebhookEvent(req.body, sig);
 
     switch (event.type) {
       case 'payment_intent.succeeded':
@@ -146,7 +145,7 @@ const handleFailedPayment = async (paymentIntent) => {
 
 export const confirmPayment = async (req, res) => {
   try {
-    const { orderId, status } = req.body;
+    const { orderId } = req.body;
 
     const order = await Order.findOne({
       _id: orderId,
@@ -165,8 +164,13 @@ export const confirmPayment = async (req, res) => {
       });
     }
 
-    // Update order status and save
-    order.paymentStatus = status;
+    // The client's word is never trusted here. A previous version wrote the
+    // request-body `status` straight onto the order, letting any authenticated
+    // user mark an order paid without paying. Verify against Stripe instead.
+    await paymentService.verifyOrderPaymentSucceeded(order);
+
+    // Verified paid. Mark the order completed.
+    order.paymentStatus = 'completed';
     if (!order.paymentDetails) {
       order.paymentDetails = {
         amount: order.total,

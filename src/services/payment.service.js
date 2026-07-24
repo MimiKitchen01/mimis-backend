@@ -49,6 +49,50 @@ export const createPaymentIntent = async (order) => {
   }
 };
 
+// Retrieve a PaymentIntent from Stripe so the server can verify a payment
+// against Stripe's own record rather than trusting the client.
+export const retrievePaymentIntent = async (paymentIntentId) => {
+  return stripe.paymentIntents.retrieve(paymentIntentId);
+};
+
+// Verify with Stripe that an order has actually been paid, for the correct
+// amount and currency. Throws ApiError if not. The single source of truth for
+// "is this order paid?" — no endpoint should mark an order paid without it.
+export const verifyOrderPaymentSucceeded = async (order) => {
+  if (!order.paymentId) {
+    throw new ApiError(400, 'No payment has been initiated for this order');
+  }
+
+  const paymentIntent = await stripe.paymentIntents.retrieve(order.paymentId);
+
+  if (paymentIntent.status !== 'succeeded') {
+    throw new ApiError(402, `Payment not completed (status: ${paymentIntent.status})`);
+  }
+
+  const expectedAmount = Math.round(order.total * 100);
+  const paidAmount = paymentIntent.amount_received ?? paymentIntent.amount;
+  if (paidAmount !== expectedAmount || paymentIntent.currency !== 'gbp') {
+    logger.error(chalk.red('Payment amount mismatch:'), {
+      orderId: order._id.toString(),
+      expectedAmount,
+      paidAmount,
+      currency: paymentIntent.currency
+    });
+    throw new ApiError(400, 'Payment amount does not match order total');
+  }
+
+  return paymentIntent;
+};
+
+// Verify and construct a Stripe webhook event from the raw request body.
+export const constructWebhookEvent = (rawBody, signature) => {
+  return stripe.webhooks.constructEvent(
+    rawBody,
+    signature,
+    process.env.STRIPE_WEBHOOK_SECRET
+  );
+};
+
 export const processPayment = async (order, paymentDetails) => {
   logger.info(chalk.blue('💳 Processing payment:'), {
     orderId: chalk.cyan(order._id),
