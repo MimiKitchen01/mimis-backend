@@ -10,6 +10,52 @@ import { ApiError } from '../middleware/error.middleware.js';
 import logger from '../utils/logger.js';
 import chalk from 'chalk';
 
+/**
+ * Notify the customer and the owner that an order has been paid.
+ *
+ * This is the single place order notifications are sent, and it runs only after
+ * a payment is verified — never on order creation, so a cancelled payment never
+ * notifies anyone. Failures here are logged but never fail the payment.
+ *
+ * `order` must be populated with `user`.
+ */
+const sendOrderPaidNotifications = async (order) => {
+  const userId = order.user?._id || order.user;
+  const customerName = order.user?.fullName || 'a customer';
+
+  try {
+    await Promise.all([
+      // Customer: in-app + push + email
+      notificationService.createNotification({
+        user: userId,
+        title: 'Payment Successful',
+        message: `Your payment for order #${order.orderNumber} was successful.`,
+        type: 'payment',
+        orderId: order._id
+      }),
+      notificationService.sendPushNotification(userId, {
+        title: 'Payment Successful',
+        body: `Your order #${order.orderNumber} is confirmed. Thank you!`,
+        data: { orderId: order._id.toString(), type: 'order_paid' }
+      }),
+      order.user?.email && emailService.sendEmail({
+        to: order.user.email,
+        subject: `Payment Successful for Order #${order.orderNumber}`,
+        html: getPaymentSuccessTemplate(order, order.user)
+      }),
+      // Owner/admins: push + email
+      notificationService.notifyAdmins({
+        title: 'New Order Received',
+        body: `Order #${order.orderNumber} (£${order.total?.toFixed(2)}) placed by ${customerName}.`,
+        data: { orderId: order._id.toString(), type: 'new_order' }
+      }),
+      emailService.sendAdminOrderNotification(order)
+    ]);
+  } catch (error) {
+    logger.error('Failed to send order-paid notifications:', error);
+  }
+};
+
 export const createPaymentSession = async (req, res) => {
   try {
     logger.info(chalk.blue('💰 Creating payment session:'),
@@ -109,26 +155,7 @@ const handleSuccessfulPayment = async (paymentIntent) => {
     order.status = 'confirmed';
     await order.save();
 
-    try {
-      // Send success notification and email
-      await Promise.all([
-        notificationService.createNotification({
-          user: order.user,
-          title: 'Payment Successful',
-          message: `Your payment for order #${order.orderNumber} was successful.`,
-          type: 'payment',
-          orderId: order._id
-        }),
-        emailService.sendEmail({
-          to: order.user.email,
-          subject: `Payment Successful for Order #${order.orderNumber}`,
-          html: getPaymentSuccessTemplate(order, order.user)
-        }),
-        emailService.sendAdminOrderNotification(order)
-      ]);
-    } catch (error) {
-      logger.error('Webhook notification failed:', error);
-    }
+    await sendOrderPaidNotifications(order);
   }
 };
 
@@ -182,27 +209,7 @@ export const confirmPayment = async (req, res) => {
 
     await order.save();
 
-    try {
-      // Send success notification and email
-      await Promise.all([
-        notificationService.createNotification({
-          user: order.user,
-          title: 'Payment Successful',
-          message: `Your payment for order #${order.orderNumber} was successful.`,
-          type: 'payment',
-          orderId: order._id
-        }),
-        emailService.sendEmail({
-          to: order.user.email,
-          subject: `Payment Successful for Order #${order.orderNumber}`,
-          html: getPaymentSuccessTemplate(order, order.user)
-        }),
-        emailService.sendAdminOrderNotification(order)
-      ]);
-    } catch (notifError) {
-      // Log notification error but don't fail the payment confirmation
-      logger.error('Failed to create payment notification:', notifError);
-    }
+    await sendOrderPaidNotifications(order);
 
     res.json({
       status: 'success',

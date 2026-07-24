@@ -68,29 +68,11 @@ export const createOrder = async (userId, addressId = null) => {
     total: chalk.yellow(`$${order.total.toFixed(2)}`)
   });
 
-  // Create notification for order creation
-  await notificationService.createNotification({
-    user: userId,
-    title: 'Order Created',
-    message: `Your order #${order.orderNumber} has been created successfully.`,
-    type: 'order',
-    orderId: order._id
-  });
-
-  await notificationService.sendPushNotification(userId, {
-    title: 'Order Created',
-    body: `Your order #${order.orderNumber} has been created successfully.`,
-    data: { orderId: order._id.toString() }
-  });
-
-  // Notify Admins
-  await notificationService.notifyAdmins({
-    title: 'New Order Received',
-    body: `Order #${order.orderNumber} has been placed by ${order.user.fullName || 'a customer'}.`,
-    data: { orderId: order._id.toString(), type: 'new_order' }
-  });
-
-
+  // No notifications here. At this point the order is only PENDING/unpaid — the
+  // customer may still cancel at the Stripe sheet. Notifying the customer and
+  // the owner now means a cancelled payment still pushed "order placed" to both.
+  // The customer and admins are notified from the payment-success path instead
+  // (payment.controller: confirmPayment / handleSuccessfulPayment).
 
   return order.populate(['items.product', 'deliveryAddress', 'user']);
 };
