@@ -8,6 +8,10 @@ yarn.lock
 .env.local
 .env.*.local
 
+# Keys and certificates
+*.pem
+*.key
+
 # Logs
 logs
 *.log
