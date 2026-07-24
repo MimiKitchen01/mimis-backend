@@ -10,6 +10,10 @@ yarn.lock
 
 .claude
 
+# Keys and certificates
+*.pem
+*.key
+
 # Logs
 logs
 *.log
