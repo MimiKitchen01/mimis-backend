@@ -55,3 +55,7 @@ debug/
 # Optional eslint cache
 .eslintcache
 .qodo
+
+# Firebase service account credentials
+*firebase-adminsdk*.json
+serviceAccount*.json
