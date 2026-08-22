@@ -82,39 +82,23 @@ export const addToCart = async (req, res) => {
     for (const item of items) {
       const product = productsMap.get(item.productId);
 
+      // Quote the currently active discounted price so cart totals match what
+      // the catalogue advertises. Cart.total is recomputed from these stored
+      // prices by the Cart pre-save hook, which is the single source of truth.
+      const unitPrice = product.discountedPrice;
+
       const existingItemIndex = cart.items.findIndex(ci => ci.product.toString() === item.productId);
       if (existingItemIndex > -1) {
         cart.items[existingItemIndex].quantity += item.quantity;
+        cart.items[existingItemIndex].price = unitPrice;
       } else {
         cart.items.push({
           product: item.productId,
           quantity: item.quantity,
-          price: product.price
+          price: unitPrice
         });
       }
     }
-
-    // Calculate total for ALL items in the cart
-    const allProductIds = cart.items.map(item => item.product.toString());
-    const allProducts = await Product.find({ _id: { $in: allProductIds } });
-    const allProductsMap = new Map(allProducts.map(p => [p._id.toString(), p]));
-
-    cart.total = cart.items.reduce((total, item) => {
-      const product = allProductsMap.get(item.product.toString());
-      if (!product) return total;
-
-      let itemPrice = product.price;
-
-      if (product.discount?.isActive && product.discount.type && product.discount.value) {
-        if (product.discount.type === 'percentage') {
-          itemPrice = product.price * (1 - (product.discount.value / 100));
-        } else if (product.discount.type === 'fixed') {
-          itemPrice = Math.max(0, product.price - product.discount.value);
-        }
-      }
-
-      return total + (itemPrice * item.quantity);
-    }, 0);
 
     await cart.save();
     await cart.populate('items.product');

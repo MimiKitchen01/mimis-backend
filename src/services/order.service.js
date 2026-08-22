@@ -27,13 +27,15 @@ export const validateOrderCreation = async (userId, addressId = null) => {
     throw new ApiError(400, 'No delivery address specified and no default address found');
   }
 
-  // Validate product availability and prices
+  // Validate product availability and prices. Carts store the effective
+  // (discounted) unit price at add-to-cart time, so compare against
+  // discountedPrice — the same formula used when quoting the cart.
   for (const item of cart.items) {
     const product = await Product.findById(item.product);
     if (!product || !product.isAvailable) {
       throw new ApiError(400, `Product ${product?.name || 'Unknown'} is no longer available`);
     }
-    if (product.price !== item.price) {
+    if (product.discountedPrice !== item.price) {
       throw new ApiError(400, `Price for ${product.name} has changed. Please update your cart`);
     }
   }
@@ -161,10 +163,9 @@ export const updateOrderStatus = async (orderId, status, adminId) => {
   // Validate status transition
   validateStatusTransition(order.status, status);
 
-  // Update payment status when order is confirmed
-  if (status === ORDER_STATUS.CONFIRMED && order.paymentStatus === PAYMENT_STATUS.PENDING) {
-    order.paymentStatus = PAYMENT_STATUS.COMPLETED;
-  }
+  // Payment status is never changed here. Confirming an order must not mark
+  // an unpaid order as paid — that is decided solely by verified payment
+  // (Stripe webhook / payments/confirm / orders/pay).
 
   order.status = status;
   order.statusHistory.push({

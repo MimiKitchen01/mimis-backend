@@ -148,8 +148,11 @@ userSchema.index({ email: 1, isActive: 1 }); // Compound index for active user l
 userSchema.index({ role: 1, isActive: 1 }); // Compound index for role-based queries
 userSchema.index({ createdAt: -1 }); // For sorting by registration date
 userSchema.index({ isActive: 1, deletedAt: 1 }); // Existing
-userSchema.index({ 'otp.expiresAt': 1 }, { expireAfterSeconds: 0 }); // TTL index to auto-delete expired OTPs
-userSchema.index({ 'resetOTP.expiresAt': 1 }, { expireAfterSeconds: 0 }); // TTL index for reset OTPs
+// NOTE: Do NOT add TTL indexes on 'otp.expiresAt' / 'resetOTP.expiresAt'.
+// MongoDB TTL indexes delete the ENTIRE document at expiry, which permanently
+// removed users who didn't verify/reset within the OTP window. Expired codes
+// are already rejected by the expiry checks at verification time; run
+// scripts/drop-ttl-indexes.js to remove these indexes from existing databases.
 
 // Password hashing middleware
 userSchema.pre('save', async function (next) {

@@ -1,6 +1,7 @@
 import * as paymentService from '../services/payment.service.js';
 import * as notificationService from '../services/notification.service.js';
 import * as emailService from '../services/email.service.js';
+import { clearCart } from '../services/cart.service.js';
 import {
   getPaymentInitiatedTemplate,
   getPaymentSuccessTemplate
@@ -53,6 +54,20 @@ const sendOrderPaidNotifications = async (order) => {
     ]);
   } catch (error) {
     logger.error('Failed to send order-paid notifications:', error);
+  }
+};
+
+/**
+ * Empty the customer's cart once their payment is verified. Every
+ * payment-completion path (client confirm, Stripe webhook, /orders/pay) must
+ * call this — otherwise the next order silently includes already-paid items.
+ */
+const clearPaidOrderCart = async (order) => {
+  const userId = order.user?._id || order.user;
+  try {
+    await clearCart(userId);
+  } catch (error) {
+    logger.error('Failed to clear cart after payment:', error);
   }
 };
 
@@ -155,6 +170,7 @@ const handleSuccessfulPayment = async (paymentIntent) => {
     order.status = 'confirmed';
     await order.save();
 
+    await clearPaidOrderCart(order);
     await sendOrderPaidNotifications(order);
   }
 };
@@ -209,6 +225,7 @@ export const confirmPayment = async (req, res) => {
 
     await order.save();
 
+    await clearPaidOrderCart(order);
     await sendOrderPaidNotifications(order);
 
     res.json({
